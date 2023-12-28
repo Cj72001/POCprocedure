@@ -1,13 +1,16 @@
-CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(P_WORKSHOP_ID 
-INT, P_COUNTRY_CODE INT) LANGUAGE PLPGSQL AS  
-	$$ DECLARE invoice_type_ids INT [],
+CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code INT) 
+    LANGUAGE PLPGSQL AS $$
+    DECLARE 
+    invoice_type_ids INT [],
 	brand_ids INT [],
 	motorcycle_type_id INT,
 	p_service_type_id INT,
 	p_currency_factor DOUBLE PRECISION,
 	package_ids INT [],
 	process_ids INT [];
-	BEGIN --Create invoice types
+
+	BEGIN 
+    --Create invoice types
 	--List<InvoiceType> createdInvoiceTypes = invoiceTypeRepository.saveAll(GenerateInvoiceTypes.generate(createdWorkshopId));
 	INSERT INTO
 	    "INVOICE_TYPES" (
@@ -429,6 +432,8 @@ INT, P_COUNTRY_CODE INT) LANGUAGE PLPGSQL AS
 	        CURRENT_TIMESTAMP,
 	        'https://res.cloudinary.com/dhbfl4v4f/image/upload/v1696882285/brands/wfs4jhra8qebph6ytqph.png'
 	    ) RETURNING brand_id INTO brand_ids;
+
+
 	--Create models
 	--modelRepository.saveAll(GenerateModels.generate(createdWorkshopId, createdBrands, createdVehicleTypes));
 	-- SELECT
@@ -3056,21 +3061,25 @@ INT, P_COUNTRY_CODE INT) LANGUAGE PLPGSQL AS
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    );
+
+
 	--Create package
 	--List<Package> createdPackages = packageRepository.saveAll(GeneratePackages.generate(createdWorkshopId, createdServiceTypes, countryCode));
 	--Id del servicio, en este caso TALLER
 	SELECT
-	    service_type_id INTO p_service_type_id
+	service_type_id INTO p_service_type_id
 	FROM "SERVICE_TYPES"
 	WHERE
-	    workshop_id = p_workshop_id
-	    AND service_type_name = 'TALLER';
+	workshop_id = p_workshop_id
+	AND service_type_name = 'TALLER';
+
 	--Definiendo el factor de conversion en funcion del codigo de pais
 	--Factor de conversion a pesos colombianos
 	IF p_country_code = 57 THEN p_currency_factor := 3500.0;
 	ELSE --Sin conversion para otras monedas
 	p_currency_factor := 1.0;
 	END IF;
+
 	INSERT INTO
 	    "PACKAGES" (
 	        "package_name",
@@ -8731,6 +8740,7 @@ INT, P_COUNTRY_CODE INT) LANGUAGE PLPGSQL AS
 	) RETURNING process_id INTO process_ids; 
     --TODO: REMPAZAR LAS LETRAS MAYUSCULAS CORRECTAMENTE DE PROCESSES
 
+
 	--Create package process
 	--processByPackageRepository.saveAll(GenerateProcessesByPackages.generate(createdWorkshopId, createdPackages, createdProcesses));
 	INSERT INTO
@@ -8740,48 +8750,1406 @@ INT, P_COUNTRY_CODE INT) LANGUAGE PLPGSQL AS
 	        process_sequence
 	    )
 	VALUES (
-	        packages_ids [1],
-	        process_ids [4],
-	        1
-	    ), (
-	        packages_ids [77],
-	        process_ids [5],
-	        1
-	    ), (
-	        packages_ids [73],
-	        process_ids [5],
-	        4
-	    ), (
-	        packages_ids [74],
-	        process_ids [10],
-	        17
-	    ), (
-	        packages_ids [67],
-	        process_ids [10],
-	        2
-	    ), (
-	        packages_ids [87],
-	        process_ids [10],
-	        5
-	    ), (
-	        packages_ids [83],
-	        process_ids [10],
-	        11
-	    ), (
-	        packages_ids [82],
-	        process_ids [10],
-	        8
-	    ), (
-	        packages_ids [77],
-	        process_ids [10],
-	        3
-	    ), (
-	        packages_ids [79],
-	        process_ids [10],
-	        2
-	    ),
-	    --TODO: Repetir para los demas processes de packages
-	( packages_ids [66], process_ids [10], 9 );
+    package_ids [1],
+    process_ids [4],
+    1
+), (
+    package_ids [77],
+    process_ids [5],
+    1
+), (
+    package_ids [73],
+    process_ids [5],
+    4
+), (
+    package_ids [80],
+    process_ids [10],
+    17
+), (
+    package_ids [67],
+    process_ids [10],
+    2
+), (
+    package_ids [87],
+    process_ids [10],
+    5
+), (
+    package_ids [83],
+    process_ids [10],
+    11
+), (
+    package_ids [82],
+    process_ids [10],
+    8
+), (
+    package_ids [77],
+    process_ids [10],
+    3
+), (
+    package_ids [79],
+    process_ids [10],
+    2
+), (
+    package_ids [66],
+    process_ids [10],
+    9
+), (
+    package_ids [71],
+    process_ids [10],
+    1
+), (
+    package_ids [77],
+    process_ids [11],
+    2
+), (
+    package_ids [77],
+    process_ids [12],
+    4
+), (
+    package_ids [81],
+    process_ids [13],
+    10
+), (
+    package_ids [80],
+    process_ids [13],
+    1
+), (
+    package_ids [75],
+    process_ids [13],
+    5
+), (
+    package_ids [74],
+    process_ids [13],
+    7
+), (
+    package_ids [69],
+    process_ids [13],
+    10
+), (
+    package_ids [87],
+    process_ids [13],
+    1
+), (
+    package_ids [82],
+    process_ids [13],
+    1
+), (
+    package_ids [66],
+    process_ids [13],
+    17
+), (
+    package_ids [86],
+    process_ids [13],
+    1
+), (
+    package_ids [70],
+    process_ids [13],
+    1
+), (
+    package_ids [83],
+    process_ids [13],
+    1
+), (
+    package_ids [87],
+    process_ids [57],
+    2
+), (
+    package_ids [74],
+    process_ids [57],
+    12
+), (
+    package_ids [80],
+    process_ids [57],
+    15
+), (
+    package_ids [86],
+    process_ids [57],
+    16
+), (
+    package_ids [73],
+    process_ids [63],
+    2
+), (
+    package_ids [79],
+    process_ids [74],
+    1
+), (
+    package_ids [87],
+    process_ids [85],
+    11
+), (
+    package_ids [73],
+    process_ids [93],
+    3
+), (
+    package_ids [73],
+    process_ids [100],
+    1
+), (
+    package_ids [67],
+    process_ids [103],
+    17
+), (
+    package_ids [83],
+    process_ids [103],
+    6
+), (
+    package_ids [80],
+    process_ids [103],
+    4
+), (
+    package_ids [68],
+    process_ids [103],
+    6
+), (
+    package_ids [66],
+    process_ids [103],
+    12
+), (
+    package_ids [71],
+    process_ids [103],
+    10
+), (
+    package_ids [86],
+    process_ids [103],
+    3
+), (
+    package_ids [69],
+    process_ids [103],
+    9
+), (
+    package_ids [81],
+    process_ids [103],
+    9
+), (
+    package_ids [75],
+    process_ids [103],
+    8
+), (
+    package_ids [68],
+    process_ids [113],
+    4
+), (
+    package_ids [81],
+    process_ids [113],
+    7
+), (
+    package_ids [67],
+    process_ids [113],
+    13
+), (
+    package_ids [86],
+    process_ids [113],
+    2
+), (
+    package_ids [83],
+    process_ids [113],
+    7
+), (
+    package_ids [69],
+    process_ids [113],
+    7
+), (
+    package_ids [75],
+    process_ids [113],
+    6
+), (
+    package_ids [66],
+    process_ids [113],
+    3
+), (
+    package_ids [80],
+    process_ids [113],
+    2
+), (
+    package_ids [91],
+    process_ids [115],
+    3
+), (
+    package_ids [82],
+    process_ids [115],
+    7
+), (
+    package_ids [67],
+    process_ids [115],
+    1
+), (
+    package_ids [66],
+    process_ids [115],
+    8
+), (
+    package_ids [80],
+    process_ids [116],
+    12
+), (
+    package_ids [71],
+    process_ids [116],
+    6
+), (
+    package_ids [2],
+    process_ids [116],
+    2
+), (
+    package_ids [70],
+    process_ids [116],
+    4
+), (
+    package_ids [75],
+    process_ids [116],
+    4
+), (
+    package_ids [82],
+    process_ids [116],
+    5
+), (
+    package_ids [86],
+    process_ids [116],
+    8
+), (
+    package_ids [66],
+    process_ids [116],
+    1
+), (
+    package_ids [87],
+    process_ids [116],
+    8
+), (
+    package_ids [67],
+    process_ids [116],
+    5
+), (
+    package_ids [70],
+    process_ids [117],
+    5
+), (
+    package_ids [66],
+    process_ids [117],
+    2
+), (
+    package_ids [82],
+    process_ids [117],
+    6
+), (
+    package_ids [87],
+    process_ids [117],
+    9
+), (
+    package_ids [75],
+    process_ids [117],
+    3
+), (
+    package_ids [86],
+    process_ids [117],
+    7
+), (
+    package_ids [67],
+    process_ids [117],
+    6
+), (
+    package_ids [71],
+    process_ids [117],
+    7
+), (
+    package_ids [80],
+    process_ids [117],
+    13
+), (
+    package_ids [74],
+    process_ids [118],
+    3
+), (
+    package_ids [75],
+    process_ids [118],
+    1
+), (
+    package_ids [80],
+    process_ids [118],
+    5
+), (
+    package_ids [69],
+    process_ids [118],
+    1
+), (
+    package_ids [86],
+    process_ids [118],
+    11
+), (
+    package_ids [68],
+    process_ids [118],
+    1
+), (
+    package_ids [67],
+    process_ids [118],
+    7
+), (
+    package_ids [81],
+    process_ids [118],
+    1
+), (
+    package_ids [70],
+    process_ids [118],
+    6
+), (
+    package_ids [87],
+    process_ids [118],
+    6
+), (
+    package_ids [2],
+    process_ids [118],
+    3
+), (
+    package_ids [83],
+    process_ids [118],
+    2
+), (
+    package_ids [71],
+    process_ids [118],
+    4
+), (
+    package_ids [66],
+    process_ids [118],
+    5
+), (
+    package_ids [70],
+    process_ids [122],
+    13
+), (
+    package_ids [74],
+    process_ids [122],
+    2
+), (
+    package_ids [69],
+    process_ids [123],
+    4
+), (
+    package_ids [79],
+    process_ids [124],
+    4
+), (
+    package_ids [90],
+    process_ids [125],
+    3
+), (
+    package_ids [81],
+    process_ids [126],
+    3
+), (
+    package_ids [83],
+    process_ids [126],
+    10
+), (
+    package_ids [71],
+    process_ids [126],
+    8
+), (
+    package_ids [91],
+    process_ids [126],
+    2
+), (
+    package_ids [82],
+    process_ids [126],
+    10
+), (
+    package_ids [87],
+    process_ids [126],
+    3
+), (
+    package_ids [66],
+    process_ids [127],
+    4
+), (
+    package_ids [68],
+    process_ids [128],
+    3
+), (
+    package_ids [67],
+    process_ids [128],
+    8
+), (
+    package_ids [2],
+    process_ids [128],
+    5
+), (
+    package_ids [81],
+    process_ids [128],
+    2
+), (
+    package_ids [80],
+    process_ids [128],
+    6
+), (
+    package_ids [82],
+    process_ids [128],
+    2
+), (
+    package_ids [66],
+    process_ids [129],
+    6
+), (
+    package_ids [71],
+    process_ids [129],
+    5
+), (
+    package_ids [83],
+    process_ids [129],
+    3
+), (
+    package_ids [70],
+    process_ids [129],
+    7
+), (
+    package_ids [80],
+    process_ids [129],
+    7
+), (
+    package_ids [75],
+    process_ids [129],
+    2
+), (
+    package_ids [87],
+    process_ids [129],
+    7
+), (
+    package_ids [86],
+    process_ids [129],
+    12
+), (
+    package_ids [68],
+    process_ids [129],
+    2
+), (
+    package_ids [69],
+    process_ids [129],
+    2
+), (
+    package_ids [67],
+    process_ids [129],
+    9
+), (
+    package_ids [74],
+    process_ids [129],
+    4
+), (
+    package_ids [70],
+    process_ids [130],
+    9
+), (
+    package_ids [67],
+    process_ids [130],
+    3
+), (
+    package_ids [75],
+    process_ids [130],
+    9
+), (
+    package_ids [68],
+    process_ids [130],
+    7
+), (
+    package_ids [86],
+    process_ids [130],
+    9
+), (
+    package_ids [74],
+    process_ids [130],
+    8
+), (
+    package_ids [66],
+    process_ids [130],
+    7
+), (
+    package_ids [80],
+    process_ids [130],
+    8
+), (
+    package_ids [78],
+    process_ids [130],
+    2
+), (
+    package_ids [69],
+    process_ids [130],
+    3
+), (
+    package_ids [79],
+    process_ids [130],
+    3
+), (
+    package_ids [2],
+    process_ids [132],
+    1
+), (
+    package_ids [69],
+    process_ids [132],
+    11
+), (
+    package_ids [67],
+    process_ids [132],
+    11
+), (
+    package_ids [66],
+    process_ids [132],
+    15
+), (
+    package_ids [70],
+    process_ids [132],
+    2
+), (
+    package_ids [80],
+    process_ids [132],
+    9
+), (
+    package_ids [82],
+    process_ids [132],
+    3
+), (
+    package_ids [86],
+    process_ids [132],
+    6
+), (
+    package_ids [71],
+    process_ids [132],
+    2
+), (
+    package_ids [83],
+    process_ids [132],
+    4
+), (
+    package_ids [75],
+    process_ids [132],
+    11
+), (
+    package_ids [71],
+    process_ids [133],
+    3
+), (
+    package_ids [74],
+    process_ids [133],
+    11
+), (
+    package_ids [67],
+    process_ids [133],
+    12
+), (
+    package_ids [66],
+    process_ids [133],
+    14
+), (
+    package_ids [83],
+    process_ids [133],
+    5
+), (
+    package_ids [86],
+    process_ids [133],
+    5
+), (
+    package_ids [82],
+    process_ids [133],
+    4
+), (
+    package_ids [75],
+    process_ids [133],
+    10
+), (
+    package_ids [70],
+    process_ids [133],
+    3
+), (
+    package_ids [80],
+    process_ids [133],
+    10
+), (
+    package_ids [75],
+    process_ids [135],
+    13
+), (
+    package_ids [66],
+    process_ids [135],
+    19
+), (
+    package_ids [86],
+    process_ids [135],
+    15
+), (
+    package_ids [67],
+    process_ids [135],
+    19
+), (
+    package_ids [80],
+    process_ids [135],
+    18
+), (
+    package_ids [68],
+    process_ids [135],
+    11
+), (
+    package_ids [82],
+    process_ids [135],
+    15
+), (
+    package_ids [74],
+    process_ids [136],
+    1
+), (
+    package_ids [68],
+    process_ids [136],
+    8
+), (
+    package_ids [86],
+    process_ids [136],
+    13
+), (
+    package_ids [2],
+    process_ids [137],
+    4
+), (
+    package_ids [68],
+    process_ids [137],
+    9
+), (
+    package_ids [86],
+    process_ids [137],
+    14
+), (
+    package_ids [22],
+    process_ids [138],
+    1
+), (
+    package_ids [19],
+    process_ids [138],
+    1
+), (
+    package_ids [13],
+    process_ids [138],
+    1
+), (
+    package_ids [16],
+    process_ids [138],
+    1
+), (
+    package_ids [16],
+    process_ids [139],
+    2
+), (
+    package_ids [19],
+    process_ids [139],
+    2
+), (
+    package_ids [13],
+    process_ids [139],
+    2
+), (
+    package_ids [22],
+    process_ids [139],
+    2
+), (
+    package_ids [13],
+    process_ids [140],
+    3
+), (
+    package_ids [16],
+    process_ids [140],
+    3
+), (
+    package_ids [19],
+    process_ids [140],
+    3
+), (
+    package_ids [22],
+    process_ids [140],
+    3
+), (
+    package_ids [20],
+    process_ids [141],
+    1
+), (
+    package_ids [17],
+    process_ids [141],
+    1
+), (
+    package_ids [14],
+    process_ids [141],
+    1
+), (
+    package_ids [23],
+    process_ids [141],
+    1
+), (
+    package_ids [23],
+    process_ids [142],
+    2
+), (
+    package_ids [20],
+    process_ids [142],
+    2
+), (
+    package_ids [17],
+    process_ids [142],
+    2
+), (
+    package_ids [14],
+    process_ids [142],
+    2
+), (
+    package_ids [14],
+    process_ids [143],
+    3
+), (
+    package_ids [23],
+    process_ids [143],
+    3
+), (
+    package_ids [20],
+    process_ids [143],
+    3
+), (
+    package_ids [17],
+    process_ids [143],
+    3
+), (
+    package_ids [23],
+    process_ids [144],
+    4
+), (
+    package_ids [14],
+    process_ids [144],
+    4
+), (
+    package_ids [20],
+    process_ids [144],
+    4
+), (
+    package_ids [17],
+    process_ids [144],
+    4
+), (
+    package_ids [14],
+    process_ids [145],
+    5
+), (
+    package_ids [20],
+    process_ids [145],
+    5
+), (
+    package_ids [23],
+    process_ids [145],
+    5
+), (
+    package_ids [17],
+    process_ids [145],
+    5
+), (
+    package_ids [24],
+    process_ids [146],
+    1
+), (
+    package_ids [18],
+    process_ids [146],
+    1
+), (
+    package_ids [15],
+    process_ids [146],
+    1
+), (
+    package_ids [12],
+    process_ids [146],
+    1
+), (
+    package_ids [21],
+    process_ids [146],
+    1
+), (
+    package_ids [12],
+    process_ids [147],
+    2
+), (
+    package_ids [24],
+    process_ids [147],
+    2
+), (
+    package_ids [18],
+    process_ids [147],
+    2
+), (
+    package_ids [15],
+    process_ids [147],
+    2
+), (
+    package_ids [21],
+    process_ids [147],
+    2
+), (
+    package_ids [12],
+    process_ids [148],
+    3
+), (
+    package_ids [15],
+    process_ids [148],
+    3
+), (
+    package_ids [24],
+    process_ids [148],
+    3
+), (
+    package_ids [18],
+    process_ids [148],
+    3
+), (
+    package_ids [12],
+    process_ids [149],
+    4
+), (
+    package_ids [15],
+    process_ids [149],
+    4
+), (
+    package_ids [24],
+    process_ids [149],
+    4
+), (
+    package_ids [18],
+    process_ids [149],
+    4
+), (
+    package_ids [12],
+    process_ids [150],
+    5
+), (
+    package_ids [24],
+    process_ids [150],
+    5
+), (
+    package_ids [18],
+    process_ids [150],
+    5
+), (
+    package_ids [15],
+    process_ids [150],
+    5
+), (
+    package_ids [75],
+    process_ids [165],
+    12
+), (
+    package_ids [83],
+    process_ids [165],
+    8
+), (
+    package_ids [91],
+    process_ids [165],
+    1
+), (
+    package_ids [89],
+    process_ids [165],
+    4
+), (
+    package_ids [82],
+    process_ids [165],
+    11
+), (
+    package_ids [90],
+    process_ids [165],
+    1
+), (
+    package_ids [80],
+    process_ids [165],
+    11
+), (
+    package_ids [70],
+    process_ids [165],
+    11
+), (
+    package_ids [87],
+    process_ids [165],
+    10
+), (
+    package_ids [71],
+    process_ids [165],
+    9
+), (
+    package_ids [66],
+    process_ids [165],
+    16
+), (
+    package_ids [67],
+    process_ids [165],
+    10
+), (
+    package_ids [66],
+    process_ids [174],
+    11
+), (
+    package_ids [70],
+    process_ids [174],
+    12
+), (
+    package_ids [67],
+    process_ids [174],
+    16
+), (
+    package_ids [82],
+    process_ids [176],
+    12
+), (
+    package_ids [91],
+    process_ids [186],
+    8
+), (
+    package_ids [9],
+    process_ids [194],
+    1
+), (
+    package_ids [45],
+    process_ids [194],
+    1
+), (
+    package_ids [45],
+    process_ids [195],
+    2
+), (
+    package_ids [9],
+    process_ids [195],
+    2
+), (
+    package_ids [45],
+    process_ids [196],
+    3
+), (
+    package_ids [9],
+    process_ids [196],
+    3
+), (
+    package_ids [27],
+    process_ids [197],
+    1
+), (
+    package_ids [27],
+    process_ids [198],
+    2
+), (
+    package_ids [27],
+    process_ids [199],
+    3
+), (
+    package_ids [35],
+    process_ids [209],
+    1
+), (
+    package_ids [10],
+    process_ids [209],
+    1
+), (
+    package_ids [46],
+    process_ids [209],
+    1
+), (
+    package_ids [10],
+    process_ids [210],
+    2
+), (
+    package_ids [35],
+    process_ids [210],
+    2
+), (
+    package_ids [46],
+    process_ids [210],
+    2
+), (
+    package_ids [46],
+    process_ids [211],
+    3
+), (
+    package_ids [10],
+    process_ids [211],
+    3
+), (
+    package_ids [46],
+    process_ids [212],
+    4
+), (
+    package_ids [10],
+    process_ids [212],
+    4
+), (
+    package_ids [46],
+    process_ids [213],
+    5
+), (
+    package_ids [10],
+    process_ids [213],
+    5
+), (
+    package_ids [42],
+    process_ids [229],
+    1
+), (
+    package_ids [42],
+    process_ids [230],
+    2
+), (
+    package_ids [42],
+    process_ids [231],
+    3
+), (
+    package_ids [42],
+    process_ids [232],
+    4
+), (
+    package_ids [42],
+    process_ids [233],
+    5
+), (
+    package_ids [25],
+    process_ids [234],
+    1
+), (
+    package_ids [25],
+    process_ids [235],
+    2
+), (
+    package_ids [25],
+    process_ids [236],
+    3
+), (
+    package_ids [25],
+    process_ids [237],
+    4
+), (
+    package_ids [25],
+    process_ids [238],
+    5
+), (
+    package_ids [43],
+    process_ids [254],
+    1
+), (
+    package_ids [43],
+    process_ids [255],
+    2
+), (
+    package_ids [43],
+    process_ids [256],
+    3
+), (
+    package_ids [43],
+    process_ids [257],
+    4
+), (
+    package_ids [43],
+    process_ids [258],
+    5
+), (
+    package_ids [67],
+    process_ids [268],
+    14
+), (
+    package_ids [71],
+    process_ids [268],
+    11
+), (
+    package_ids [69],
+    process_ids [268],
+    8
+), (
+    package_ids [75],
+    process_ids [268],
+    7
+), (
+    package_ids [81],
+    process_ids [268],
+    8
+), (
+    package_ids [86],
+    process_ids [268],
+    4
+), (
+    package_ids [80],
+    process_ids [268],
+    3
+), (
+    package_ids [68],
+    process_ids [268],
+    5
+), (
+    package_ids [91],
+    process_ids [269],
+    7
+), (
+    package_ids [44],
+    process_ids [277],
+    1
+), (
+    package_ids [44],
+    process_ids [278],
+    2
+), (
+    package_ids [44],
+    process_ids [279],
+    3
+), (
+    package_ids [44],
+    process_ids [280],
+    4
+), (
+    package_ids [72],
+    process_ids [290],
+    7
+), (
+    package_ids [74],
+    process_ids [297],
+    5
+), (
+    package_ids [81],
+    process_ids [297],
+    5
+), (
+    package_ids [69],
+    process_ids [297],
+    5
+), (
+    package_ids [74],
+    process_ids [298],
+    9
+), (
+    package_ids [81],
+    process_ids [298],
+    6
+), (
+    package_ids [69],
+    process_ids [298],
+    6
+), (
+    package_ids [78],
+    process_ids [304],
+    1
+), (
+    package_ids [73],
+    process_ids [307],
+    5
+), (
+    package_ids [90],
+    process_ids [307],
+    2
+), (
+    package_ids [66],
+    process_ids [311],
+    13
+), (
+    package_ids [82],
+    process_ids [311],
+    9
+), (
+    package_ids [83],
+    process_ids [311],
+    9
+), (
+    package_ids [87],
+    process_ids [311],
+    4
+), (
+    package_ids [86],
+    process_ids [311],
+    10
+), (
+    package_ids [81],
+    process_ids [311],
+    4
+), (
+    package_ids [70],
+    process_ids [311],
+    8
+), (
+    package_ids [75],
+    process_ids [311],
+    15
+), (
+    package_ids [71],
+    process_ids [311],
+    12
+), (
+    package_ids [91],
+    process_ids [311],
+    4
+), (
+    package_ids [67],
+    process_ids [311],
+    4
+), (
+    package_ids [68],
+    process_ids [331],
+    10
+), (
+    package_ids [85],
+    process_ids [338],
+    3
+), (
+    package_ids [88],
+    process_ids [338],
+    3
+), (
+    package_ids [72],
+    process_ids [338],
+    4
+), (
+    package_ids [84],
+    process_ids [338],
+    3
+), (
+    package_ids [82],
+    process_ids [390],
+    13
+), (
+    package_ids [78],
+    process_ids [402],
+    3
+), (
+    package_ids [85],
+    process_ids [413],
+    1
+), (
+    package_ids [88],
+    process_ids [413],
+    1
+), (
+    package_ids [72],
+    process_ids [413],
+    1
+), (
+    package_ids [84],
+    process_ids [413],
+    1
+), (
+    package_ids [84],
+    process_ids [415],
+    2
+), (
+    package_ids [88],
+    process_ids [415],
+    2
+), (
+    package_ids [72],
+    process_ids [416],
+    2
+), (
+    package_ids [76],
+    process_ids [431],
+    1
+), (
+    package_ids [76],
+    process_ids [432],
+    2
+), (
+    package_ids [76],
+    process_ids [433],
+    3
+), (
+    package_ids [67],
+    process_ids [437],
+    15
+), (
+    package_ids [72],
+    process_ids [437],
+    5
+), (
+    package_ids [89],
+    process_ids [437],
+    3
+), (
+    package_ids [80],
+    process_ids [437],
+    16
+), (
+    package_ids [66],
+    process_ids [438],
+    10
+), (
+    package_ids [91],
+    process_ids [438],
+    5
+), (
+    package_ids [85],
+    process_ids [438],
+    5
+), (
+    package_ids [80],
+    process_ids [445],
+    14
+), (
+    package_ids [87],
+    process_ids [445],
+    12
+), (
+    package_ids [72],
+    process_ids [452],
+    3
+), (
+    package_ids [85],
+    process_ids [452],
+    4
+), (
+    package_ids [84],
+    process_ids [452],
+    4
+), (
+    package_ids [75],
+    process_ids [454],
+    14
+), (
+    package_ids [82],
+    process_ids [469],
+    14
+), (
+    package_ids [91],
+    process_ids [473],
+    6
+), (
+    package_ids [90],
+    process_ids [473],
+    4
+), (
+    package_ids [85],
+    process_ids [492],
+    2
+), (
+    package_ids [74],
+    process_ids [494],
+    6
+), (
+    package_ids [70],
+    process_ids [494],
+    10
+), (
+    package_ids [72],
+    process_ids [528],
+    6
+), (
+    package_ids [74],
+    process_ids [597],
+    10
+), (
+    package_ids [89],
+    process_ids [598],
+    2
+), (
+    package_ids [89],
+    process_ids [599],
+    1
+), (
+    package_ids [67],
+    process_ids [604],
+    18
+), (
+    package_ids [66],
+    process_ids [604],
+    18
+);
+
+    --No es necesario que le ponga then rollback, porque lo hace implicito en una exception
+    EXCEPTION WHEN OTHERS 
+    THEN RAISE EXCEPTION 'Ocurrio un error eliminando la workshop. Error: %', sqlerrm;
 	COMMIT;
 	END;
 	$$;
+
+
+
+
