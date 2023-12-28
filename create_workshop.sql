@@ -10142,9 +10142,6 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
     18
 );
 
-	--No es necesario que le ponga then rollback, porque lo hace implicito en una exception
-	exception when others 
-	then raise exception 'Ocurrio un error eliminando la workshop. Error: %', sqlerrm;
 	COMMIT;
 	END;
 	$$
