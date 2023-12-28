@@ -1,12 +1,13 @@
-CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code INT) 
-    LANGUAGE PLPGSQL AS $$
+CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code INT) 
+    LANGUAGE PLPGSQL
+    AS $$
     DECLARE 
-    invoice_type_ids INT [],
-	brand_ids INT [],
-	motorcycle_type_id INT,
-	p_service_type_id INT,
-	p_currency_factor DOUBLE PRECISION,
-	package_ids INT [],
+    invoice_type_ids INT [];
+	brand_ids INT [];
+	motorcycle_type_id INT;
+	p_service_type_id INT;
+	p_currency_factor NUMERIC;
+	package_ids INT [];
 	process_ids INT [];
 
 	BEGIN 
@@ -6416,7 +6417,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE DELANTERA (B-FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS",
+	        "PARTE DELANTERA (B): FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS",
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6424,7 +6425,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE MEDIA (B-BUJIA, FILTRO DE GASOLINA",
+	        "PARTE MEDIA (B): BUJIA, FILTRO DE GASOLINA",
 	        10,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6432,7 +6433,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE TRASERA (B-FRENOS TRASEROS, EJE TRASERO, KIT DE TRACCION",
+	        "PARTE TRASERA (B): FRENOS TRASEROS, EJE TRASERO, KIT DE TRACCION",
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6448,7 +6449,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE DELANTERA (M-FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS",
+	        "PARTE DELANTERA (M): FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS",
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6456,7 +6457,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE MEDIA (M-PUNTERIAS, BUJIA, CARBURADOR, FILTRO DE GASOLINA, FILTRO DE AIRE, EJE DE TIJERA, BATERIA",
+	        "PARTE MEDIA (M): PUNTERIAS, BUJIA, CARBURADOR, FILTRO DE GASOLINA, FILTRO DE AIRE, EJE DE TIJERA, BATERIA",
 	        90,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6464,7 +6465,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE TRASERA (M-FRENOS TRASEROS, KIT DE TRACCION",
+	        "PARTE TRASERA (M): FRENOS TRASEROS, KIT DE TRACCION",
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6472,7 +6473,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ACEITE (M-ACEITE, REAPRIETE GENERAL, LLANTAS",
+	        "CAMBIO DE ACEITE (M): ACEITE, REAPRIETE GENERAL, LLANTAS",
 	        30,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6658,12 +6659,11 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	    ), (
 	        "cambio de chiclero",
 	        30,
-	        5.95 -.95
-	    ),
-	    1,
-	    p_workshop_id,
-	    CURRENT_TIMESTAMP,
-	    CURRENT_TIMESTAMP
+	        p_currency_factor * 5.95,
+	        1,
+	        p_workshop_id,
+	        CURRENT_TIMESTAMP,
+	        CURRENT_TIMESTAMP
 	), (
 	    "LUBRICACION DE EJE DE RIN",
 	    20,
@@ -7169,7 +7169,7 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DIAGNOSTICO Y CORRECCION     ",
+	    "DIAGNOSTICO Y CORRECCION",
 	    60,
 	    p_currency_factor * 20.0,
 	    1,
@@ -8211,12 +8211,11 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
 	), (
 	    "REAPRETE DE PERNOS DE TIMON",
 	    15,
-	    3.75 -.75
-	),
-	1,
-	p_workshop_id,
-	CURRENT_TIMESTAMP,
-	CURRENT_TIMESTAMP
+	    p_currency_factor * 3.75,
+	    1,
+	    p_workshop_id,
+	    CURRENT_TIMESTAMP,
+	    CURRENT_TIMESTAMP
 	), (
 	    "REVISI�N DE FUGA DE GASOLINA EN TANQUE ",
 	    60,
@@ -10143,13 +10142,9 @@ CREATE OR REPLACE PROCEDURE CREATE_WORKSHOP(p_workshop_id INT, p_country_code IN
     18
 );
 
-    --No es necesario que le ponga then rollback, porque lo hace implicito en una exception
-    EXCEPTION WHEN OTHERS 
-    THEN RAISE EXCEPTION 'Ocurrio un error eliminando la workshop. Error: %', sqlerrm;
+	--No es necesario que le ponga then rollback, porque lo hace implicito en una exception
+	exception when others 
+	then raise exception 'Ocurrio un error eliminando la workshop. Error: %', sqlerrm;
 	COMMIT;
 	END;
-	$$;
-
-
-
-
+	$$
