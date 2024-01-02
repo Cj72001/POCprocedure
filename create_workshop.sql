@@ -1,20 +1,25 @@
-CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code INT) 
+--call create_workshop(1, 503, 3884.84);
+
+CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code INT, p_currency_parameter NUMERIC) 
     LANGUAGE PLPGSQL
     AS $$
     DECLARE 
-    invoice_type_ids INT [];
-	brand_ids INT [];
+    invoice_type_ids INT [] := '{}'; 
+	invoice_type_record RECORD;
+	brand_ids INT [] := '{}';
 	motorcycle_type_id INT;
 	p_service_type_id INT;
 	p_currency_factor NUMERIC;
-	package_ids INT [];
-	process_ids INT [];
+	package_ids INT [] := '{}';
+	process_ids INT [] := '{}';
+	temp_invoice_id INT;  -- Variable temporal para almacenar un solo ID
 
 	BEGIN 
+
     --Create invoice types
 	--List<InvoiceType> createdInvoiceTypes = invoiceTypeRepository.saveAll(GenerateInvoiceTypes.generate(createdWorkshopId));
 	INSERT INTO
-	    "INVOICE_TYPES" (
+	    INVOICE_TYPES (
 	        "invoice_type_name",
 	        "invoice_type_code",
 	        "invoice_type_active",
@@ -43,11 +48,20 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        p_workshop_id,
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
-	    ) RETURNING invoice_type_id INTO invoice_type_ids;
+	    );
+		
+		--Guardando los ids
+    	SELECT ARRAY(SELECT invoice_type_id FROM INVOICE_TYPES WHERE workshop_id = p_workshop_id)
+    	INTO invoice_type_ids;
+
+    	--Probando imprimir ids:
+    	RAISE NOTICE 'IDs: %', invoice_type_ids;
+		
+	
 	--Create vehicles types
 	--List<VehicleType> createdVehicleTypes = vehicleTypeRepository.saveAll(GenerateVehicleTypes.generate(createdWorkshopId));
 	INSERT INTO
-	    "VEHICLE_TYPES" (
+	    VEHICLE_TYPES (
 	        "vehicle_type_name",
 	        "vehicle_type_active",
 	        "workshop_id",
@@ -130,7 +144,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	-- WHERE
 	--     workshop_id = p_workshop_id;
 	INSERT INTO
-	    "SERIES" (
+	    SERIES (
 	        "serie_number",
 	        "serie_begin",
 	        "serie_end",
@@ -179,7 +193,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Create brands
 	--List<Brand> createdBrands = brandRepository.saveAll(GenerateBrands.generate(createdWorkshopId));
 	INSERT INTO
-	    "BRANDS" (
+	    BRANDS (
 	        "brand_name",
 	        "brand_active",
 	        "workshop_id",
@@ -432,7 +446,14 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP,
 	        'https://res.cloudinary.com/dhbfl4v4f/image/upload/v1696882285/brands/wfs4jhra8qebph6ytqph.png'
-	    ) RETURNING brand_id INTO brand_ids;
+	    );
+		
+		--Guardando los ids
+    	SELECT ARRAY(SELECT brand_id FROM BRANDS WHERE workshop_id = p_workshop_id)
+    	INTO brand_ids;
+
+    	--Probando imprimir ids:
+    	RAISE NOTICE 'IDs: %', brand_ids;
 
 
 	--Create models
@@ -448,8 +469,9 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	where
 	    workshop_id = p_workshop_id
 	    AND vehicle_type_name = 'MOTOCICLETA';
+		
 	INSERT INTO
-	    "MODELS" (
+	    MODELS (
 	        "model_name",
 	        "brand_id",
 	        "vehicle_type_id",
@@ -3027,10 +3049,11 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    );
+		
 	--Create service types
 	--List<ServiceType> createdServiceTypes = serviceTypeRepository.saveAll(GenerateServiceTypes.generate(createdWorkshopId));
 	INSERT INTO
-	    "SERVICE_TYPES" (
+	    SERVICE_TYPES (
 	        "service_type_name",
 	        "service_type_active",
 	        "workshop_id",
@@ -3069,20 +3092,22 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Id del servicio, en este caso TALLER
 	SELECT
 	service_type_id INTO p_service_type_id
-	FROM "SERVICE_TYPES"
+	FROM SERVICE_TYPES
 	WHERE
 	workshop_id = p_workshop_id
 	AND service_type_name = 'TALLER';
 
 	--Definiendo el factor de conversion en funcion del codigo de pais
 	--Factor de conversion a pesos colombianos
-	IF p_country_code = 57 THEN p_currency_factor := 3500.0;
-	ELSE --Sin conversion para otras monedas
+	IF p_country_code = 57 THEN p_currency_factor := p_currency_parameter;
+	--Sin conversion para otras monedas
+	ELSE 
 	p_currency_factor := 1.0;
 	END IF;
-
+	
+	
 	INSERT INTO
-	    "PACKAGES" (
+	    PACKAGES(
 	        "package_name",
 	        "package_price",
 	        "service_type_id",
@@ -3092,7 +3117,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        "updated_at"
 	    )
 	VALUES (
-	        "Mantenimiento Basico",
+	        'Mantenimiento Basico',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3100,7 +3125,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO",
+	        'MANTENIMIENTO BASICO',
 	        p_currency_factor * 12.0,
 	        p_service_type_id,
 	        1,
@@ -3108,7 +3133,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO TOURING",
+	        'MANTENIMIENTO BASICO TOURING',
 	        p_currency_factor * 2.0,
 	        p_service_type_id,
 	        1,
@@ -3116,7 +3141,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO TOURING",
+	        'MANTENIMIENTO MEDIO TOURING',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3124,7 +3149,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "TOURING MAYOR",
+	        'TOURING MAYOR',
 	        p_currency_factor * 28.9,
 	        p_service_type_id,
 	        1,
@@ -3132,7 +3157,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR TOURING",
+	        'MANTENIMIENTO MAYOR TOURING',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3140,7 +3165,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MTTO MEDIO NAKED",
+	        'MTTO MEDIO NAKED',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3148,7 +3173,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "NAKED MAYOR",
+	        'NAKED MAYOR',
 	        p_currency_factor * 38.9,
 	        p_service_type_id,
 	        1,
@@ -3156,7 +3181,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MTTO BASICO CROSS",
+	        'MTTO BASICO CROSS',
 	        p_currency_factor * 20.0,
 	        p_service_type_id,
 	        1,
@@ -3164,7 +3189,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MTTO MEDIO CROSS",
+	        'MTTO MEDIO CROSS',
 	        p_currency_factor * 30.0,
 	        p_service_type_id,
 	        1,
@@ -3172,7 +3197,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CROSS MAYOR",
+	        'CROSS MAYOR',
 	        p_currency_factor * 33.9,
 	        p_service_type_id,
 	        1,
@@ -3180,7 +3205,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CROSS MAYOR",
+	        'CROSS MAYOR',
 	        p_currency_factor * 40.0,
 	        p_service_type_id,
 	        1,
@@ -3188,7 +3213,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CUSTOM BASICO",
+	        'CUSTOM BASICO',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3196,7 +3221,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CUSTOM MEDIO",
+	        'CUSTOM MEDIO',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3204,7 +3229,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CUSTOM MAYOR",
+	        'CUSTOM MAYOR',
 	        p_currency_factor * 38.9,
 	        p_service_type_id,
 	        1,
@@ -3212,7 +3237,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RACING BASICO",
+	        'RACING BASICO',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3220,7 +3245,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RACING MEDIO",
+	        'RACING MEDIO',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3228,7 +3253,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RACING MAYOR",
+	        'RACING MAYOR',
 	        p_currency_factor * 43.9,
 	        p_service_type_id,
 	        1,
@@ -3236,7 +3261,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SCOOTER BASICO",
+	        'SCOOTER BASICO',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3244,7 +3269,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SCOOTER MEDIO",
+	        'SCOOTER MEDIO',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3252,7 +3277,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SCOOTER MAYOR",
+	        'SCOOTER MAYOR',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3260,7 +3285,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SCOOTER BASICO",
+	        'SCOOTER BASICO',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3268,7 +3293,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SCOOTER MEDIO",
+	        'SCOOTER MEDIO',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3276,7 +3301,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SCOOTER MAYOR",
+	        'SCOOTER MAYOR',
 	        p_currency_factor * 38.9,
 	        p_service_type_id,
 	        1,
@@ -3284,7 +3309,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "TOURING MAYOR",
+	        'TOURING MAYOR',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3292,7 +3317,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "NAKED MAYOR",
+	        'NAKED MAYOR',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3300,7 +3325,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MTTO BASICO NAKED",
+	        'MTTO BASICO NAKED',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3308,7 +3333,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO CROSS",
+	        'MANTENIMIENTO BASICO CROSS',
 	        p_currency_factor * 20.0,
 	        p_service_type_id,
 	        1,
@@ -3316,7 +3341,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO CROSS",
+	        'MANTENIMIENTO MEDIO CROSS',
 	        p_currency_factor * 30.0,
 	        p_service_type_id,
 	        1,
@@ -3324,7 +3349,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR CROSS",
+	        'MANTENIMIENTO MAYOR CROSS',
 	        p_currency_factor * 40.0,
 	        p_service_type_id,
 	        1,
@@ -3332,7 +3357,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO NAKED",
+	        'MANTENIMIENTO BASICO NAKED',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3340,7 +3365,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO NAKED",
+	        'MANTENIMIENTO MEDIO NAKED',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3348,7 +3373,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR NAKED",
+	        'MANTENIMIENTO MAYOR NAKED',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3356,7 +3381,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO CUSTOM",
+	        'MANTENIMIENTO BASICO CUSTOM',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3364,7 +3389,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MTTO MEDIO CROSS",
+	        'MTTO MEDIO CROSS',
 	        p_currency_factor * 30.0,
 	        p_service_type_id,
 	        1,
@@ -3372,7 +3397,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO CUSTOM",
+	        'MANTENIMIENTO MEDIO CUSTOM',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3380,7 +3405,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR CUSTOM",
+	        'MANTENIMIENTO MAYOR CUSTOM',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3388,7 +3413,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO SCOOTER",
+	        'MANTENIMIENTO BASICO SCOOTER',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3396,7 +3421,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO SCOOTER",
+	        'MANTENIMIENTO MEDIO SCOOTER',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3404,7 +3429,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR SCOOTER",
+	        'MANTENIMIENTO MAYOR SCOOTER',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3412,7 +3437,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO RACING",
+	        'MANTENIMIENTO BASICO RACING',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3420,7 +3445,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO RACING",
+	        'MANTENIMIENTO MEDIO RACING',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3428,7 +3453,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR RACING",
+	        'MANTENIMIENTO MAYOR RACING',
 	        p_currency_factor * 55.0,
 	        p_service_type_id,
 	        1,
@@ -3436,7 +3461,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO GARANTIA",
+	        'MANTENIMIENTO GARANTIA',
 	        p_currency_factor * 0.0,
 	        p_service_type_id,
 	        1,
@@ -3444,7 +3469,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO COMSI",
+	        'MANTENIMIENTO BASICO COMSI',
 	        p_currency_factor * 13.9,
 	        p_service_type_id,
 	        1,
@@ -3452,7 +3477,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO COMSI",
+	        'MANTENIMIENTO MEDIO COMSI',
 	        p_currency_factor * 19.9,
 	        p_service_type_id,
 	        1,
@@ -3460,7 +3485,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR COMSI",
+	        'MANTENIMIENTO MAYOR COMSI',
 	        p_currency_factor * 27.9,
 	        p_service_type_id,
 	        1,
@@ -3468,7 +3493,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR TOURING",
+	        'MANTENIMIENTO MAYOR TOURING',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3476,7 +3501,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO NAKED",
+	        'MANTENIMIENTO BASICO NAKED',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3484,7 +3509,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR NAKED",
+	        'MANTENIMIENTO MAYOR NAKED',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3492,7 +3517,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO RACING",
+	        'MANTENIMIENTO BASICO RACING',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3500,7 +3525,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR RACING",
+	        'MANTENIMIENTO MAYOR RACING',
 	        p_currency_factor * 65.0,
 	        p_service_type_id,
 	        1,
@@ -3508,7 +3533,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO CROSS",
+	        'MANTENIMIENTO BASICO CROSS',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3516,7 +3541,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO CROSS",
+	        'MANTENIMIENTO BASICO CROSS',
 	        p_currency_factor * 40.0,
 	        p_service_type_id,
 	        1,
@@ -3524,7 +3549,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR CROSS",
+	        'MANTENIMIENTO MAYOR CROSS',
 	        p_currency_factor * 40.0,
 	        p_service_type_id,
 	        1,
@@ -3532,7 +3557,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO SCOOTER",
+	        'MANTENIMIENTO BASICO SCOOTER',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3540,7 +3565,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR SCOOTER",
+	        'MANTENIMIENTO MAYOR SCOOTER',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3548,7 +3573,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO",
+	        'MANTENIMIENTO MEDIO',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3556,7 +3581,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR TOURING",
+	        'MANTENIMIENTO MAYOR TOURING',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3564,7 +3589,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO TOURING",
+	        'MANTENIMIENTO BASICO TOURING',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3572,7 +3597,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO 500KM",
+	        'MANTENIMIENTO 500KM',
 	        p_currency_factor * 9.99,
 	        p_service_type_id,
 	        1,
@@ -3580,7 +3605,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR CUADRIMOTO",
+	        'MANTENIMIENTO MAYOR CUADRIMOTO',
 	        p_currency_factor * 47.0,
 	        p_service_type_id,
 	        1,
@@ -3588,7 +3613,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR KAWASAKI",
+	        'MANTENIMIENTO MAYOR KAWASAKI',
 	        p_currency_factor * 75.0,
 	        p_service_type_id,
 	        1,
@@ -3596,7 +3621,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO 200CC",
+	        'MANTENIMIENTO MEDIO 200CC',
 	        p_currency_factor * 35.0,
 	        p_service_type_id,
 	        1,
@@ -3604,7 +3629,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO RACING",
+	        'MANTENIMIENTO MEDIO RACING',
 	        p_currency_factor * 45.0,
 	        p_service_type_id,
 	        1,
@@ -3612,7 +3637,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO FULL NIVEL 1",
+	        'MANTENIMIENTO FULL NIVEL 1',
 	        p_currency_factor * 39.5,
 	        p_service_type_id,
 	        1,
@@ -3620,7 +3645,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MAYOR NIVEL 2",
+	        'MANTENIMIENTO MAYOR NIVEL 2',
 	        p_currency_factor * 49.5,
 	        p_service_type_id,
 	        1,
@@ -3628,7 +3653,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIENTO GARANTIA UMA",
+	        'MANTENIENTO GARANTIA UMA',
 	        p_currency_factor * 23.0,
 	        p_service_type_id,
 	        1,
@@ -3636,7 +3661,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BÁSICO NIVEL 1",
+	        'MANTENIMIENTO BÁSICO NIVEL 1',
 	        p_currency_factor * 17.5,
 	        p_service_type_id,
 	        1,
@@ -3644,7 +3669,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO NIVEL 1",
+	        'MANTENIMIENTO MEDIO NIVEL 1',
 	        p_currency_factor * 29.5,
 	        p_service_type_id,
 	        1,
@@ -3652,7 +3677,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO FULL RACING +300cc",
+	        'MANTENIMIENTO FULL RACING +300cc',
 	        p_currency_factor * 42.0,
 	        p_service_type_id,
 	        1,
@@ -3660,7 +3685,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "AJUSTE DE MOTOR NIVEL 3",
+	        'AJUSTE DE MOTOR NIVEL 3',
 	        p_currency_factor * 122.0,
 	        p_service_type_id,
 	        1,
@@ -3668,7 +3693,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Revisión electrica 2",
+	        'Revisión electrica 2',
 	        p_currency_factor * 25.0,
 	        p_service_type_id,
 	        1,
@@ -3676,7 +3701,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BÁSICO NS200",
+	        'MANTENIMIENTO BÁSICO NS200',
 	        p_currency_factor * 18.5,
 	        p_service_type_id,
 	        1,
@@ -3684,7 +3709,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO MEDIO NIVEL 2",
+	        'MANTENIMIENTO MEDIO NIVEL 2',
 	        p_currency_factor * 39.5,
 	        p_service_type_id,
 	        1,
@@ -3692,7 +3717,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SELLOS DE BARRA",
+	        'CAMBIO DE SELLOS DE BARRA',
 	        p_currency_factor * 20.0,
 	        p_service_type_id,
 	        1,
@@ -3700,7 +3725,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Paquete de prueba",
+	        'Paquete de prueba',
 	        p_currency_factor * 34.0,
 	        p_service_type_id,
 	        1,
@@ -3708,7 +3733,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Escala de diagnóstico NIVEL 1",
+	        'Escala de diagnóstico NIVEL 1',
 	        p_currency_factor * 20.0,
 	        p_service_type_id,
 	        1,
@@ -3716,7 +3741,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Escala de diagnóstico ACELERACIÓN Fase 2",
+	        'Escala de diagnóstico ACELERACIÓN Fase 2',
 	        p_currency_factor * 32.0,
 	        p_service_type_id,
 	        1,
@@ -3724,7 +3749,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO FULL NIVEL 3",
+	        'MANTENIMIENTO FULL NIVEL 3',
 	        p_currency_factor * 60.0,
 	        p_service_type_id,
 	        1,
@@ -3732,7 +3757,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO BASICO R3",
+	        'MANTENIMIENTO BASICO R3',
 	        p_currency_factor * 30.0,
 	        p_service_type_id,
 	        1,
@@ -3740,7 +3765,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO FULL AUTOMÁTICA ",
+	        'MANTENIMIENTO FULL AUTOMÁTICA ',
 	        p_currency_factor * 39.5,
 	        p_service_type_id,
 	        1,
@@ -3748,7 +3773,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO FULL NIVEL 4",
+	        'MANTENIMIENTO FULL NIVEL 4',
 	        p_currency_factor * 37.0,
 	        p_service_type_id,
 	        1,
@@ -3756,7 +3781,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "AJUSTE DE MOTOR NIVEL 1",
+	        'AJUSTE DE MOTOR NIVEL 1',
 	        p_currency_factor * 80.0,
 	        p_service_type_id,
 	        1,
@@ -3764,7 +3789,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "AJUSTE DE MOTOR 200CC",
+	        'AJUSTE DE MOTOR 200CC',
 	        p_currency_factor * 90.0,
 	        p_service_type_id,
 	        1,
@@ -3772,7 +3797,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO NIVEL 2",
+	        'MANTENIMIENTO NIVEL 2',
 	        p_currency_factor * 41.0,
 	        p_service_type_id,
 	        1,
@@ -3780,7 +3805,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MANTENIMIENTO FULL QUTE",
+	        'MANTENIMIENTO FULL QUTE',
 	        p_currency_factor * 70.0,
 	        p_service_type_id,
 	        1,
@@ -3788,7 +3813,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "AJUSTE DE MOTOR NIVEL 2",
+	        'AJUSTE DE MOTOR NIVEL 2',
 	        p_currency_factor * 90.0,
 	        p_service_type_id,
 	        1,
@@ -3796,7 +3821,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Revisión de moto (para compra/venta)",
+	        'Revisión de moto (para compra/venta)',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3804,7 +3829,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE SISTEMA ELECTRICA",
+	        'REVISION DE SISTEMA ELECTRICA',
 	        p_currency_factor * 15.0,
 	        p_service_type_id,
 	        1,
@@ -3812,18 +3837,29 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ESCALA DE DIAGNÓSTICO P/MOTO NO ARRANCA",
+	        'ESCALA DE DIAGNÓSTICO P/MOTO NO ARRANCA',
 	        p_currency_factor * 55.0,
 	        p_service_type_id,
 	        1,
 	        p_workshop_id,
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
-	    ) RETURNING package_id INTO package_ids;
+	    );
+
+		--Guardando los ids
+    	SELECT ARRAY(SELECT package_id FROM PACKAGES WHERE workshop_id = p_workshop_id)
+    	INTO package_ids;
+
+    	--Probando imprimir ids:
+    	RAISE NOTICE 'IDs: %', package_ids;
+		
+		
+		
+		
 	--Create process
 	--List<Process> createdProcesses = processRepository.saveAll(GenerateProcesses.generate(createdWorkshopId, countryCode));
 	INSERT INTO
-	    "PROCESS" (
+	    PROCESS (
 	        process_name,
 	        process_estimated_time,
 	        process_price,
@@ -3833,7 +3869,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        updated_at
 	    )
 	VALUES (
-	        "Cambio de cable de velocimetro",
+	        'Cambio de cable de velocimetro',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -3841,7 +3877,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Cambio de aceite ",
+	        'Cambio de aceite ',
 	        10,
 	        p_currency_factor * 1.0,
 	        1,
@@ -3849,7 +3885,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "calibrado de valvula nivel 1",
+	        'calibrado de valvula nivel 1',
 	        30,
 	        p_currency_factor * 6.0,
 	        1,
@@ -3857,7 +3893,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Desarmar",
+	        'Desarmar',
 	        30,
 	        p_currency_factor * 7.7,
 	        1,
@@ -3865,7 +3901,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ADAPTE DE REGULADOR DE VOLTAJE",
+	        'ADAPTE DE REGULADOR DE VOLTAJE',
 	        30,
 	        p_currency_factor * 12.0,
 	        1,
@@ -3873,7 +3909,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ARMADO DE MOTOR",
+	        'ARMADO DE MOTOR',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -3881,7 +3917,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ASENTADO DE 2 VALVULAS",
+	        'ASENTADO DE 2 VALVULAS',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -3889,7 +3925,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ASENTADO DE 4 VALVULAS",
+	        'ASENTADO DE 4 VALVULAS',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -3897,7 +3933,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "DESARME DE MOTOR",
+	        'DESARME DE MOTOR',
 	        60,
 	        p_currency_factor * 30.0,
 	        1,
@@ -3905,7 +3941,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION DE PUNTERIAS",
+	        'CALIBRACION DE PUNTERIAS',
 	        15,
 	        p_currency_factor * 12.0,
 	        1,
@@ -3913,7 +3949,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE ACELERADOR",
+	        'CAMBIO DE CABLE ACELERADOR',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -3921,7 +3957,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PI�ON DE ATAQUE",
+	        'CAMBIO DE PIÑON DE ATAQUE',
 	        20,
 	        p_currency_factor * 6.0,
 	        1,
@@ -3929,7 +3965,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ACEITE DE MOTOR STANDAR",
+	        'CAMBIO DE ACEITE DE MOTOR STANDAR',
 	        20,
 	        p_currency_factor * 2.0,
 	        1,
@@ -3937,7 +3973,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ACEITE DE BARRA 100CC-200CC",
+	        'CAMBIO DE ACEITE DE BARRA 100CC-200CC',
 	        120,
 	        p_currency_factor * 10.0,
 	        1,
@@ -3945,7 +3981,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE AMPOLLETA DE FRENO (DELANTERA)",
+	        'CAMBIO DE AMPOLLETA DE FRENO (DELANTERA)',
 	        10,
 	        p_currency_factor * 1.5,
 	        1,
@@ -3953,7 +3989,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE AMPOLLETA DE FRENO (TRASERA)",
+	        'CAMBIO DE AMPOLLETA DE FRENO (TRASERA)',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -3961,7 +3997,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ARBOL DE LEVAS",
+	        'CAMBIO DE ARBOL DE LEVAS',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -3969,7 +4005,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BALANCINES",
+	        'CAMBIO DE BALANCINES',
 	        80,
 	        p_currency_factor * 20.0,
 	        1,
@@ -3977,7 +4013,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BALEROS DE ARBOL DE LEVAS",
+	        'CAMBIO DE BALEROS DE ARBOL DE LEVAS',
 	        40,
 	        p_currency_factor * 20.0,
 	        1,
@@ -3985,7 +4021,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BALEROS DE RIN DELANTERO",
+	        'CAMBIO DE BALEROS DE RIN DELANTERO',
 	        45,
 	        p_currency_factor * 10.0,
 	        1,
@@ -3993,7 +4029,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BALEROS DE RIN TRASERO",
+	        'CAMBIO DE BALEROS DE RIN TRASERO',
 	        50,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4001,7 +4037,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BASE DE CLUTCH",
+	        'CAMBIO DE BASE DE CLUTCH',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4009,7 +4045,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BATERIA",
+	        'CAMBIO DE BATERIA',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4017,7 +4053,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BOBINA DE ARRANQUE",
+	        'CAMBIO DE BOBINA DE ARRANQUE',
 	        40,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4025,7 +4061,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BOBINA DE ALTA",
+	        'CAMBIO DE BOBINA DE ALTA',
 	        30,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4033,7 +4069,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BOMBA DE ACEITE",
+	        'CAMBIO DE BOMBA DE ACEITE',
 	        45,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4041,7 +4077,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BOMBA DE FRENO (DELANTERA)",
+	        'CAMBIO DE BOMBA DE FRENO (DELANTERA)',
 	        45,
 	        p_currency_factor * 12.0,
 	        1,
@@ -4049,7 +4085,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BOMBA DE FRENO (TRASERA)",
+	        'CAMBIO DE BOMBA DE FRENO (TRASERA)',
 	        50,
 	        p_currency_factor * 12.0,
 	        1,
@@ -4057,7 +4093,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BUSHING DE TIJERA TNT 150",
+	        'CAMBIO DE BUSHING DE TIJERA TNT 150',
 	        90,
 	        p_currency_factor * 45.0,
 	        1,
@@ -4065,7 +4101,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BUJIA ",
+	        'CAMBIO DE BUJIA ',
 	        10,
 	        p_currency_factor * 1.0,
 	        1,
@@ -4073,7 +4109,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE DE CLUTCH",
+	        'CAMBIO DE CABLE DE CLUTCH',
 	        10,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4081,7 +4117,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE DE CLUTCH",
+	        'CAMBIO DE CABLE DE CLUTCH',
 	        10,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4089,7 +4125,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE DE SHOCK",
+	        'CAMBIO DE CABLE DE SHOCK',
 	        10,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4097,7 +4133,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE DE VELOCIMETRO",
+	        'CAMBIO DE CABLE DE VELOCIMETRO',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4105,7 +4141,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CADENA",
+	        'CAMBIO DE CADENA',
 	        15,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4113,7 +4149,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CAJA DE VELOCIDADES",
+	        'CAMBIO DE CAJA DE VELOCIDADES',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4121,7 +4157,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CAPUCHON DE BUJIA",
+	        'CAMBIO DE CAPUCHON DE BUJIA',
 	        5,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4129,7 +4165,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CAPUCHON DE BUJIA CENTRAL",
+	        'CAMBIO DE CAPUCHON DE BUJIA CENTRAL',
 	        25,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4137,7 +4173,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CARBURADOR",
+	        'CAMBIO DE CARBURADOR',
 	        30,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4145,7 +4181,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CDI ",
+	        'CAMBIO DE CDI ',
 	        15,
 	        p_currency_factor * 6.0,
 	        1,
@@ -4153,7 +4189,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CLUTCH AUTOMATICO",
+	        'CAMBIO DE CLUTCH AUTOMATICO',
 	        30,
 	        p_currency_factor * 25.0,
 	        1,
@@ -4161,7 +4197,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CUNAS CILINDRADA ALTA ",
+	        'CAMBIO DE CUNAS CILINDRADA ALTA ',
 	        90,
 	        p_currency_factor * 25.0,
 	        1,
@@ -4169,7 +4205,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE DESLIZADORES DE CADENILLA  ",
+	        'CAMBIO DE DESLIZADORES DE CADENILLA  ',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4177,7 +4213,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE DISCO DE FRENO (DELANTERO)",
+	        'CAMBIO DE DISCO DE FRENO (DELANTERO)',
 	        20,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4185,7 +4221,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE DISCO DE FRENO (TRASERO)",
+	        'CAMBIO DE DISCO DE FRENO (TRASERO)',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4193,7 +4229,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE DISCOS DE CLUTCH",
+	        'CAMBIO DE DISCOS DE CLUTCH',
 	        50,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4201,7 +4237,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EMPAQUE DE CLUTCH",
+	        'CAMBIO DE EMPAQUE DE CLUTCH',
 	        20,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4209,7 +4245,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EMPAQUE DE ESCAPE",
+	        'CAMBIO DE EMPAQUE DE ESCAPE',
 	        25,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4217,7 +4253,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EMPAQUE DE MAGNETO",
+	        'CAMBIO DE EMPAQUE DE MAGNETO',
 	        25,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4225,7 +4261,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EMPAQUE DE PUNTERIA",
+	        'CAMBIO DE EMPAQUE DE PUNTERIA',
 	        30,
 	        p_currency_factor * 6.0,
 	        1,
@@ -4233,7 +4269,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EMPAQUE DE TIEMPO",
+	        'CAMBIO DE EMPAQUE DE TIEMPO',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4241,7 +4277,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ESCAPE",
+	        'CAMBIO DE ESCAPE',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4249,7 +4285,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ESPARRAGOS DE ESCAPE",
+	        'CAMBIO DE ESPARRAGOS DE ESCAPE',
 	        30,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4257,7 +4293,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ESPARRAGOS DE CULATA",
+	        'CAMBIO DE ESPARRAGOS DE CULATA',
 	        90,
 	        p_currency_factor * 40.0,
 	        1,
@@ -4265,7 +4301,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ESTRIBOS",
+	        'CAMBIO DE ESTRIBOS',
 	        15,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4273,7 +4309,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FAROL",
+	        'CAMBIO DE FAROL',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4281,7 +4317,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FILTRO DE ACEITE",
+	        'CAMBIO DE FILTRO DE ACEITE',
 	        15,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4289,7 +4325,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FILTRO DE AIRE ",
+	        'CAMBIO DE FILTRO DE AIRE ',
 	        10,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4297,7 +4333,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FILTRO DE GASOLINA",
+	        'CAMBIO DE FILTRO DE GASOLINA',
 	        5,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4305,7 +4341,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FOCO DE LAGRIMA",
+	        'CAMBIO DE FOCO DE LAGRIMA',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4313,7 +4349,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FOCO DE SILVIN",
+	        'CAMBIO DE FOCO DE SILVIN',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4321,7 +4357,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FOCO DE VIA",
+	        'CAMBIO DE FOCO DE VIA',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4329,7 +4365,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FOCO DE STOP",
+	        'CAMBIO DE FOCO DE STOP',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4337,7 +4373,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE HULES DE CATARINA ",
+	        'CAMBIO DE HULES DE CATARINA ',
 	        30,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4345,7 +4381,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE KIT COMPLETO DE EMPAQUES DE MOTOR",
+	        'CAMBIO DE KIT COMPLETO DE EMPAQUES DE MOTOR',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4353,7 +4389,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE KIT DE CADENILLA DE TIEMPO",
+	        'CAMBIO DE KIT DE CADENILLA DE TIEMPO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4361,7 +4397,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE KIT DE TRACCION",
+	        'CAMBIO DE KIT DE TRACCION',
 	        40,
 	        p_currency_factor * 12.0,
 	        1,
@@ -4369,7 +4405,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE KIT MEDIO DE EMPAQUES DE MOTOR ",
+	        'CAMBIO DE KIT MEDIO DE EMPAQUES DE MOTOR ',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4377,7 +4413,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE LLANTA (DELANTERA)",
+	        'CAMBIO DE LLANTA (DELANTERA)',
 	        30,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4385,7 +4421,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE LLANTA (TRASERA)",
+	        'CAMBIO DE LLANTA (TRASERA)',
 	        50,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4393,7 +4429,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE LLAVINES",
+	        'CAMBIO DE LLAVINES',
 	        60,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4401,7 +4437,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE MANECILLA DE CLUTCH",
+	        'CAMBIO DE MANECILLA DE CLUTCH',
 	        15,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4409,7 +4445,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE MANECILLA DE FRENO",
+	        'CAMBIO DE MANECILLA DE FRENO',
 	        15,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4417,7 +4453,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE MANIFUL",
+	        'CAMBIO DE MANIFUL',
 	        25,
 	        p_currency_factor * 6.0,
 	        1,
@@ -4425,7 +4461,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE MANUBRIO",
+	        'CAMBIO DE MANUBRIO',
 	        20,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4433,7 +4469,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE MONO SHOCK",
+	        'CAMBIO DE MONO SHOCK',
 	        90,
 	        p_currency_factor * 22.0,
 	        1,
@@ -4441,7 +4477,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE OJO DE ANGEL (INTERNO)",
+	        'CAMBIO DE OJO DE ANGEL (INTERNO)',
 	        90,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4449,7 +4485,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PASTILLAS (DELANTERAS)",
+	        'CAMBIO DE PASTILLAS (DELANTERAS)',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4457,7 +4493,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PASTILLAS (TRASERAS)",
+	        'CAMBIO DE PASTILLAS (TRASERAS)',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4465,7 +4501,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PEDAL DE CAMBIO",
+	        'CAMBIO DE PEDAL DE CAMBIO',
 	        15,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4473,7 +4509,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PI�ON DE ATAQUE",
+	        'CAMBIO DE PIÑON DE ATAQUE',
 	        16,
 	        p_currency_factor * 6.0,
 	        1,
@@ -4481,7 +4517,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PI�ON DE TIEMPO",
+	        'CAMBIO DE PIÑON DE TIEMPO',
 	        50,
 	        p_currency_factor * 40.0,
 	        1,
@@ -4489,7 +4525,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PRENSA DE CLUCHT",
+	        'CAMBIO DE PRENSA DE CLUCHT',
 	        60,
 	        p_currency_factor * 22.0,
 	        1,
@@ -4497,7 +4533,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PROTECTOR DE PI�ON DE ATAQUE",
+	        'CAMBIO DE PROTECTOR DE PIÑON DE ATAQUE',
 	        15,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4505,7 +4541,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE REFRIGERANTE",
+	        'CAMBIO DE REFRIGERANTE',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4513,7 +4549,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION O CAMBIO DE REGULADOR DE VOLTAJE ",
+	        'REVISION O CAMBIO DE REGULADOR DE VOLTAJE ',
 	        20,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4521,7 +4557,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE REGULADOR DE CADENA",
+	        'CAMBIO DE REGULADOR DE CADENA',
 	        20,
 	        p_currency_factor * 6.0,
 	        1,
@@ -4529,7 +4565,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE RETENEDOR DE PI�ON DE ATAQUE",
+	        'CAMBIO DE RETENEDOR DE PIÑON DE ATAQUE',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4537,7 +4573,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE RETENEDORES DE EJE DE CAMBIOS",
+	        'CAMBIO DE RETENEDORES DE EJE DE CAMBIOS',
 	        30,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4545,7 +4581,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SELLOS DE BARRA",
+	        'CAMBIO DE SELLOS DE BARRA',
 	        120,
 	        p_currency_factor * 20.0,
 	        1,
@@ -4553,7 +4589,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SELLOS DE VALVULA",
+	        'CAMBIO DE SELLOS DE VALVULA',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4561,7 +4597,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SILVIN ",
+	        'CAMBIO DE SILVIN ',
 	        40,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4569,7 +4605,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SOCKET DE FOCO DEL SILVIN",
+	        'CAMBIO DE SOCKET DE FOCO DEL SILVIN',
 	        20,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4577,7 +4613,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SOLUCION FRENO (DELANTERO)",
+	        'CAMBIO DE SOLUCION FRENO (DELANTERO)',
 	        30,
 	        p_currency_factor * 6.0,
 	        1,
@@ -4585,7 +4621,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE SOLUCION FRENO (TRASERO)",
+	        'CAMBIO DE SOLUCION FRENO (TRASERO)',
 	        30,
 	        p_currency_factor * 8.0,
 	        1,
@@ -4593,7 +4629,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TABLERO",
+	        'CAMBIO DE TABLERO',
 	        40,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4601,7 +4637,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TAPADERA DE PUNTERIA",
+	        'CAMBIO DE TAPADERA DE PUNTERIA',
 	        30,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4609,7 +4645,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TENSOR DE CADENILLA",
+	        'CAMBIO DE TENSOR DE CADENILLA',
 	        120,
 	        p_currency_factor * 40.0,
 	        1,
@@ -4617,7 +4653,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TERMINALES DE BATERIA",
+	        'CAMBIO DE TERMINALES DE BATERIA',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4625,7 +4661,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CARGA DE BATERIA",
+	        'CARGA DE BATERIA',
 	        60,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4633,7 +4669,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PRE-DIAGNOSTICO",
+	        'PRE-DIAGNOSTICO',
 	        30,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4641,7 +4677,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "DIAGNOSTICO",
+	        'DIAGNOSTICO',
 	        90,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4649,7 +4685,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE CADENA",
+	        'ENGRASE DE CADENA',
 	        5,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4657,7 +4693,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE CUNAS",
+	        'ENGRASE DE CUNAS',
 	        40,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4665,7 +4701,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ASIENTO",
+	        'CAMBIO DE ASIENTO',
 	        15,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4673,7 +4709,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ESPEJOS",
+	        'CAMBIO DE ESPEJOS',
 	        10,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4681,7 +4717,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE FOCO LED",
+	        'INSTALACION DE FOCO LED',
 	        20,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4689,7 +4725,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE HALOGENOS",
+	        'INSTALACION DE HALOGENOS',
 	        40,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4697,7 +4733,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE PARRILLA",
+	        'INSTALACION DE PARRILLA',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4705,7 +4741,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE PERNO DE ESTRIBO",
+	        'INSTALACION DE PERNO DE ESTRIBO',
 	        20,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4713,7 +4749,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PITO",
+	        'CAMBIO DE PITO',
 	        10,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4721,7 +4757,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE TIRAS LED",
+	        'INSTALACION DE TIRAS LED',
 	        35,
 	        p_currency_factor * 5.0,
 	        1,
@@ -4729,7 +4765,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE CADENA",
+	        'LIMPIEZA DE CADENA',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4737,7 +4773,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE CALIPER",
+	        'LIMPIEZA DE CALIPER',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4745,7 +4781,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE CARBURADOR",
+	        'LIMPIEZA DE CARBURADOR',
 	        45,
 	        p_currency_factor * 12.0,
 	        1,
@@ -4753,7 +4789,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE FRENOS (DELANTEROS)",
+	        'LIMPIEZA DE FRENOS (DELANTEROS)',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4761,7 +4797,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE FRENOS (TRASEROS)",
+	        'LIMPIEZA DE FRENOS (TRASEROS)',
 	        15,
 	        p_currency_factor * 4.0,
 	        1,
@@ -4769,7 +4805,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION DE CABLE DE CLUTCH",
+	        'LUBRICACION DE CABLE DE CLUTCH',
 	        7,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4777,7 +4813,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRETE DE CUNAS DE DIRECCI�N ",
+	        'REAPRETE DE CUNAS DE DIRECCIÓN ',
 	        15,
 	        p_currency_factor * 15.0,
 	        1,
@@ -4785,7 +4821,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICACION DE YUGO ",
+	        'RECTIFICACION DE YUGO ',
 	        60,
 	        p_currency_factor * 35.0,
 	        1,
@@ -4793,7 +4829,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICADO DE PRENSA",
+	        'RECTIFICADO DE PRENSA',
 	        60,
 	        p_currency_factor * 45.0,
 	        1,
@@ -4801,7 +4837,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REGULACION DE CABLE DE CLUTCH",
+	        'REGULACION DE CABLE DE CLUTCH',
 	        5,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4809,7 +4845,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REGULACION DE CABLE DE FRENO",
+	        'REGULACION DE CABLE DE FRENO',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4817,7 +4853,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REGULACION DE CARBURADOR",
+	        'REGULACION DE CARBURADOR',
 	        60,
 	        p_currency_factor * 12.0,
 	        1,
@@ -4825,7 +4861,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE BOBINA DE ALTA",
+	        'REVISION DE BOBINA DE ALTA',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -4833,7 +4869,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE BUJIA",
+	        'REVISION DE BUJIA',
 	        5,
 	        p_currency_factor * 1.0,
 	        1,
@@ -4841,7 +4877,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "TENSADO DE CADENA",
+	        'TENSADO DE CADENA',
 	        5,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4849,7 +4885,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION DE CABLE DE FRENO",
+	        'LUBRICACION DE CABLE DE FRENO',
 	        15,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4857,7 +4893,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION DE CABLE DE ACELERADOR",
+	        'LUBRICACION DE CABLE DE ACELERADOR',
 	        8,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4865,7 +4901,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE BUJIA",
+	        'LIMPIEZA DE BUJIA',
 	        5,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4873,7 +4909,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "DESARMADO DE MOTOR",
+	        'DESARMADO DE MOTOR',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -4881,7 +4917,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE EJE (DELANTERO)",
+	        'ENGRASE DE EJE (DELANTERO)',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4889,7 +4925,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE EJE (TRASERO)",
+	        'ENGRASE DE EJE (TRASERO)',
 	        10,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4897,7 +4933,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE EJE DE TIJERA",
+	        'ENGRASE DE EJE DE TIJERA',
 	        10,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4905,7 +4941,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION DE AIRE EN LLANTAS",
+	        'CALIBRACION DE AIRE EN LLANTAS',
 	        10,
 	        p_currency_factor * 1.0,
 	        1,
@@ -4913,7 +4949,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE MANECILLA DE CLUTCH",
+	        'ENGRASE DE MANECILLA DE CLUTCH',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4921,7 +4957,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE DE MANECILLA DE FRENO",
+	        'ENGRASE DE MANECILLA DE FRENO',
 	        10,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4929,7 +4965,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO BASICO TOURING",
+	        'LIMPIEZA O CAMBIO BASICO TOURING',
 	        30,
 	        p_currency_factor * 11.0,
 	        1,
@@ -4937,7 +4973,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION BASICO TOURING",
+	        'LUBRICACION BASICO TOURING',
 	        30,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4945,7 +4981,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE BASICO TOURING",
+	        'ENGRASE BASICO TOURING',
 	        20,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4953,7 +4989,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MEDIO TOURING",
+	        'LIMPIEZA O CAMBIO MEDIO TOURING',
 	        60,
 	        p_currency_factor * 14.0,
 	        1,
@@ -4961,7 +4997,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MEDIO TOURING",
+	        'LUBRICACION MEDIO TOURING',
 	        30,
 	        p_currency_factor * 2.0,
 	        1,
@@ -4969,7 +5005,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MEDIO TOURING ",
+	        'ENGRASE MEDIO TOURING ',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -4977,7 +5013,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MEDIO TOURING",
+	        'CALIBRACION MEDIO TOURING',
 	        30,
 	        p_currency_factor * 4.5,
 	        1,
@@ -4985,7 +5021,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MEDIO TOURING",
+	        'REAPRIETE MEDIO TOURING',
 	        10,
 	        p_currency_factor * 1.5,
 	        1,
@@ -4993,7 +5029,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR",
+	        'LIMPIEZA O CAMBIO MAYOR',
 	        70,
 	        p_currency_factor * 8.0,
 	        1,
@@ -5001,7 +5037,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR",
+	        'LUBRICACION MAYOR',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5009,7 +5045,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR",
+	        'ENGRASE MAYOR',
 	        15,
 	        p_currency_factor * 4.0,
 	        1,
@@ -5017,7 +5053,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR",
+	        'CALIBRACION MAYOR',
 	        35,
 	        p_currency_factor * 18.0,
 	        1,
@@ -5025,7 +5061,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR",
+	        'REAPRIETE MAYOR',
 	        20,
 	        p_currency_factor * 2.0,
 	        1,
@@ -5033,7 +5069,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO EMPAQUE DE TENSOR DE CADENILLA",
+	        'CAMBIO EMPAQUE DE TENSOR DE CADENILLA',
 	        20,
 	        p_currency_factor * 4.5,
 	        1,
@@ -5041,7 +5077,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION ELECTRICA MOTOCICLETA CARBURADA",
+	        'REVISION ELECTRICA MOTOCICLETA CARBURADA',
 	        75,
 	        p_currency_factor * 20.0,
 	        1,
@@ -5049,7 +5085,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BALEROS DE MOTOR",
+	        'CAMBIO DE BALEROS DE MOTOR',
 	        60,
 	        p_currency_factor * 75.0,
 	        1,
@@ -5057,7 +5093,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE FAJA",
+	        'CAMBIO DE FAJA',
 	        45,
 	        p_currency_factor * 15.0,
 	        1,
@@ -5065,7 +5101,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE INDICADORES DE VELOCIDAD",
+	        'CAMBIO DE INDICADORES DE VELOCIDAD',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5073,7 +5109,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ESTRELLA SELECTORA",
+	        'CAMBIO DE ESTRELLA SELECTORA',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5081,7 +5117,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENDEREZADO DE BARRAS",
+	        'ENDEREZADO DE BARRAS',
 	        30,
 	        p_currency_factor * 15.0,
 	        1,
@@ -5089,7 +5125,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "NIVELADO DE RIN DE ESTRELLA",
+	        'NIVELADO DE RIN DE ESTRELLA',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5097,7 +5133,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "NIVELADO DE RIN DE RAYO",
+	        'NIVELADO DE RIN DE RAYO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5105,7 +5141,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICADO DE YUGO",
+	        'RECTIFICADO DE YUGO',
 	        80,
 	        p_currency_factor * 45.0,
 	        1,
@@ -5113,7 +5149,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICADO DE PRENSA",
+	        'RECTIFICADO DE PRENSA',
 	        50,
 	        p_currency_factor * 45.0,
 	        1,
@@ -5121,7 +5157,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REPARACION DE BASE DE ESTRIBO",
+	        'REPARACION DE BASE DE ESTRIBO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5129,7 +5165,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE RADIADOR",
+	        'REVISION DE RADIADOR',
 	        45,
 	        p_currency_factor * 20.0,
 	        1,
@@ -5137,7 +5173,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE VELOCIMETRO",
+	        'REVISION DE VELOCIMETRO',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -5145,7 +5181,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE CARGA DE BATERIA",
+	        'REVISION DE CARGA DE BATERIA',
 	        5,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5153,7 +5189,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ELABORACION DE EMPAQUE DE CILINDRO",
+	        'ELABORACION DE EMPAQUE DE CILINDRO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5161,7 +5197,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENDEREZADO DE MANUBRIO",
+	        'ENDEREZADO DE MANUBRIO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5169,7 +5205,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENDEREZADO DE PATA DE CAMBIOS",
+	        'ENDEREZADO DE PATA DE CAMBIOS',
 	        30,
 	        p_currency_factor * 5.0,
 	        1,
@@ -5177,7 +5213,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENDEREZADO DE PATA DOBLE",
+	        'ENDEREZADO DE PATA DOBLE',
 	        20,
 	        p_currency_factor * 60.0,
 	        1,
@@ -5185,7 +5221,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE ASIENTO",
+	        'INSTALACION DE ASIENTO',
 	        5,
 	        p_currency_factor * 20.0,
 	        1,
@@ -5193,7 +5229,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE ESPEJOS",
+	        'INSTALACION DE ESPEJOS',
 	        30,
 	        p_currency_factor * 5.0,
 	        1,
@@ -5201,7 +5237,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE FOCO LED",
+	        'INSTALACION DE FOCO LED',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -5209,7 +5245,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE PITO",
+	        'INSTALACION DE PITO',
 	        15,
 	        p_currency_factor * 4.0,
 	        1,
@@ -5217,7 +5253,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRETE DE PERNOS DE MOTOR",
+	        'REAPRETE DE PERNOS DE MOTOR',
 	        25,
 	        p_currency_factor * 8.0,
 	        1,
@@ -5225,7 +5261,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE DE ACELERADOR",
+	        'CAMBIO DE CABLE DE ACELERADOR',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -5233,7 +5269,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE CABLE DE ACELERADOR",
+	        'REVISION DE CABLE DE ACELERADOR',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5241,7 +5277,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CABLE DE FRENO",
+	        'CAMBIO DE CABLE DE FRENO',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -5249,7 +5285,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE CABLE DE CLUTCH",
+	        'REVISION DE CABLE DE CLUTCH',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -5257,7 +5293,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE CABLE DE FRENO",
+	        'REVISION DE CABLE DE FRENO',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -5265,7 +5301,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE CUNAS",
+	        'REVISION DE CUNAS',
 	        60,
 	        p_currency_factor * 15.0,
 	        1,
@@ -5273,7 +5309,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE NIVEL DE ACIDO DE BATERIA",
+	        'REVISION DE NIVEL DE ACIDO DE BATERIA',
 	        15,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5281,7 +5317,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE PITO",
+	        'REVISION DE PITO',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -5289,7 +5325,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE PRENSA",
+	        'REVISION DE PRENSA',
 	        60,
 	        p_currency_factor * 18.0,
 	        1,
@@ -5297,7 +5333,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION DE PUNTERIAS NS200",
+	        'CALIBRACION DE PUNTERIAS NS200',
 	        60,
 	        p_currency_factor * 15.0,
 	        1,
@@ -5305,7 +5341,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE SISTEMA DE ENCENDIDO",
+	        'REVISION DE SISTEMA DE ENCENDIDO',
 	        120,
 	        p_currency_factor * 15.0,
 	        1,
@@ -5313,7 +5349,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISI�N DE SWITCH DERECHO",
+	        'REVISIÓN DE SWITCH DERECHO',
 	        30,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5321,7 +5357,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE SWITCH DE VIA",
+	        'REVISION DE SWITCH DE VIA',
 	        6,
 	        p_currency_factor * 30.0,
 	        1,
@@ -5329,7 +5365,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE TABLERO",
+	        'REVISION DE TABLERO',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -5337,7 +5373,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SOLDADURA DE ESCAPE",
+	        'SOLDADURA DE ESCAPE',
 	        60,
 	        p_currency_factor * 20.0,
 	        1,
@@ -5345,7 +5381,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CALIPER (DELANTERO)",
+	        'CAMBIO DE CALIPER (DELANTERO)',
 	        30,
 	        p_currency_factor * 8.0,
 	        1,
@@ -5353,7 +5389,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CALIPER (TRASERO)",
+	        'CAMBIO DE CALIPER (TRASERO)',
 	        40,
 	        p_currency_factor * 8.0,
 	        1,
@@ -5361,7 +5397,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BASE DE FRENO",
+	        'CAMBIO DE BASE DE FRENO',
 	        4,
 	        p_currency_factor * 20.0,
 	        1,
@@ -5369,7 +5405,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "TRABAJO TORNO",
+	        'TRABAJO TORNO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5377,7 +5413,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO BASICO CROSS",
+	        'LIMPIEZA O CAMBIO BASICO CROSS',
 	        35,
 	        p_currency_factor * 16.0,
 	        1,
@@ -5385,7 +5421,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION BASICO CROSS",
+	        'LUBRICACION BASICO CROSS',
 	        35,
 	        p_currency_factor * 2.0,
 	        1,
@@ -5393,7 +5429,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE BASICO CROSS",
+	        'ENGRASE BASICO CROSS',
 	        25,
 	        p_currency_factor * 2.0,
 	        1,
@@ -5401,7 +5437,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO BASICO NAKED",
+	        'LIMPIEZA O CAMBIO BASICO NAKED',
 	        40,
 	        p_currency_factor * 19.0,
 	        1,
@@ -5409,7 +5445,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION BASICO NAKED",
+	        'LUBRICACION BASICO NAKED',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5417,7 +5453,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE BASICO NAKED",
+	        'ENGRASE BASICO NAKED',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5425,7 +5461,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO BASICO CUSTOM",
+	        'LIMPIEZA O CAMBIO BASICO CUSTOM',
 	        40,
 	        p_currency_factor * 19.0,
 	        1,
@@ -5433,7 +5469,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION BASICO CUSTOM",
+	        'LUBRICACION BASICO CUSTOM',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5441,7 +5477,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE BASICO CUSTOM",
+	        'ENGRASE BASICO CUSTOM',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5449,7 +5485,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO BASICO SCOOTER",
+	        'LIMPIEZA O CAMBIO BASICO SCOOTER',
 	        45,
 	        p_currency_factor * 19.0,
 	        1,
@@ -5457,7 +5493,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION BASICO SCOOTER",
+	        'LUBRICACION BASICO SCOOTER',
 	        45,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5465,7 +5501,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE BASICO SCOOTER",
+	        'ENGRASE BASICO SCOOTER',
 	        35,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5473,7 +5509,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO BASICO RACING",
+	        'LIMPIEZA O CAMBIO BASICO RACING',
 	        50,
 	        p_currency_factor * 29.0,
 	        1,
@@ -5481,7 +5517,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION BASICO RACING",
+	        'LUBRICACION BASICO RACING',
 	        50,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5489,7 +5525,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE BASICO RACING",
+	        'ENGRASE BASICO RACING',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5497,7 +5533,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MEDIO CROSS",
+	        'LIMPIEZA O CAMBIO MEDIO CROSS',
 	        65,
 	        p_currency_factor * 19.0,
 	        1,
@@ -5505,7 +5541,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MEDIO CROSS",
+	        'LUBRICACION MEDIO CROSS',
 	        35,
 	        p_currency_factor * 2.0,
 	        1,
@@ -5513,7 +5549,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MEDIO CROSS",
+	        'ENGRASE MEDIO CROSS',
 	        25,
 	        p_currency_factor * 2.0,
 	        1,
@@ -5521,7 +5557,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MEDIO CROSS",
+	        'CALIBRACION MEDIO CROSS',
 	        35,
 	        p_currency_factor * 5.5,
 	        1,
@@ -5529,7 +5565,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MEDIO CROSS",
+	        'REAPRIETE MEDIO CROSS',
 	        15,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5537,7 +5573,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MEDIO NAKED",
+	        'LIMPIEZA O CAMBIO MEDIO NAKED',
 	        70,
 	        p_currency_factor * 21.0,
 	        1,
@@ -5545,7 +5581,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MEDIO NAKED",
+	        'LUBRICACION MEDIO NAKED',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5553,7 +5589,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MEDIO NAKED",
+	        'ENGRASE MEDIO NAKED',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5561,7 +5597,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MEDIO NAKED",
+	        'CALIBRACION MEDIO NAKED',
 	        40,
 	        p_currency_factor * 6.5,
 	        1,
@@ -5569,7 +5605,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MEDIO NAKED",
+	        'REAPRIETE MEDIO NAKED',
 	        20,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5577,7 +5613,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MEDIO CUSTOM",
+	        'LIMPIEZA O CAMBIO MEDIO CUSTOM',
 	        70,
 	        p_currency_factor * 21.0,
 	        1,
@@ -5585,7 +5621,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MEDIO CUSTOM",
+	        'LUBRICACION MEDIO CUSTOM',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5593,7 +5629,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MEDIO CUSTOM",
+	        'ENGRASE MEDIO CUSTOM',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5601,7 +5637,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MEDIO CUSTOM",
+	        'CALIBRACION MEDIO CUSTOM',
 	        40,
 	        p_currency_factor * 6.5,
 	        1,
@@ -5609,7 +5645,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MEDIO CUSTOM",
+	        'REAPRIETE MEDIO CUSTOM',
 	        20,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5617,7 +5653,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MEDIO SCOOTER",
+	        'LIMPIEZA O CAMBIO MEDIO SCOOTER',
 	        75,
 	        p_currency_factor * 21.0,
 	        1,
@@ -5625,7 +5661,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MEDIO SCOOTER",
+	        'LUBRICACION MEDIO SCOOTER',
 	        45,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5633,7 +5669,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MEDIO SCOOTER",
+	        'ENGRASE MEDIO SCOOTER',
 	        35,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5641,7 +5677,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MEDIO SCOOTER",
+	        'CALIBRACION MEDIO SCOOTER',
 	        45,
 	        p_currency_factor * 6.5,
 	        1,
@@ -5649,7 +5685,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MEDIO SCOOTER",
+	        'REAPRIETE MEDIO SCOOTER',
 	        25,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5657,7 +5693,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MEDIO RACING",
+	        'LIMPIEZA O CAMBIO MEDIO RACING',
 	        80,
 	        p_currency_factor * 29.0,
 	        1,
@@ -5665,7 +5701,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MEDIO RACING",
+	        'LUBRICACION MEDIO RACING',
 	        50,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5673,7 +5709,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MEDIO RACING",
+	        'ENGRASE MEDIO RACING',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5681,7 +5717,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MEDIO RACING",
+	        'CALIBRACION MEDIO RACING',
 	        50,
 	        p_currency_factor * 8.5,
 	        1,
@@ -5689,7 +5725,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MEDIO RACING",
+	        'REAPRIETE MEDIO RACING',
 	        30,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5697,7 +5733,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR TOURING",
+	        'LIMPIEZA O CAMBIO MAYOR TOURING',
 	        60,
 	        p_currency_factor * 17.0,
 	        1,
@@ -5705,7 +5741,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR TOURING",
+	        'LUBRICACION MAYOR TOURING',
 	        30,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5713,7 +5749,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR TOURING",
+	        'ENGRASE MAYOR TOURING',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5721,7 +5757,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR TOURING",
+	        'CALIBRACION MAYOR TOURING',
 	        60,
 	        p_currency_factor * 7.5,
 	        1,
@@ -5729,7 +5765,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR TOURING",
+	        'REAPRIETE MAYOR TOURING',
 	        10,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5737,7 +5773,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR CROSS",
+	        'LIMPIEZA O CAMBIO MAYOR CROSS',
 	        35,
 	        p_currency_factor * 22.0,
 	        1,
@@ -5745,7 +5781,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR CROSS",
+	        'LUBRICACION MAYOR CROSS',
 	        35,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5753,7 +5789,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR CROSS",
+	        'ENGRASE MAYOR CROSS',
 	        25,
 	        p_currency_factor * 2.0,
 	        1,
@@ -5761,7 +5797,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR CROSS",
+	        'CALIBRACION MAYOR CROSS',
 	        65,
 	        p_currency_factor * 8.5,
 	        1,
@@ -5769,7 +5805,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR CROSS",
+	        'REAPRIETE MAYOR CROSS',
 	        15,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5777,7 +5813,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR CUSTOM",
+	        'LIMPIEZA O CAMBIO MAYOR CUSTOM',
 	        70,
 	        p_currency_factor * 23.0,
 	        1,
@@ -5785,7 +5821,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR CUSTOM",
+	        'LUBRICACION MAYOR CUSTOM',
 	        40,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5793,7 +5829,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR CUSTOM",
+	        'ENGRASE MAYOR CUSTOM',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5801,7 +5837,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR CUSTOM",
+	        'CALIBRACION MAYOR CUSTOM',
 	        70,
 	        p_currency_factor * 11.5,
 	        1,
@@ -5809,7 +5845,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR CUSTOM",
+	        'REAPRIETE MAYOR CUSTOM',
 	        20,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5817,7 +5853,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR SCOOTER",
+	        'LIMPIEZA O CAMBIO MAYOR SCOOTER',
 	        75,
 	        p_currency_factor * 23.0,
 	        1,
@@ -5825,7 +5861,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR SCOOTER",
+	        'LUBRICACION MAYOR SCOOTER',
 	        45,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5833,7 +5869,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR SCOOTER",
+	        'ENGRASE MAYOR SCOOTER',
 	        35,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5841,7 +5877,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR SCOOTER",
+	        'CALIBRACION MAYOR SCOOTER',
 	        75,
 	        p_currency_factor * 11.5,
 	        1,
@@ -5849,7 +5885,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR SCOOTER",
+	        'REAPRIETE MAYOR SCOOTER',
 	        25,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5857,7 +5893,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR RACING",
+	        'LIMPIEZA O CAMBIO MAYOR RACING',
 	        80,
 	        p_currency_factor * 34.0,
 	        1,
@@ -5865,7 +5901,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR RACING",
+	        'LUBRICACION MAYOR RACING',
 	        50,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5873,7 +5909,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR RACING",
+	        'ENGRASE MAYOR RACING',
 	        40,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5881,7 +5917,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR RACING",
+	        'CALIBRACION MAYOR RACING',
 	        80,
 	        p_currency_factor * 13.5,
 	        1,
@@ -5889,7 +5925,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR RACING",
+	        'REAPRIETE MAYOR RACING',
 	        30,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5897,7 +5933,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REBOBINADO",
+	        'REBOBINADO',
 	        0,
 	        p_currency_factor * 50.0,
 	        1,
@@ -5905,7 +5941,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MAYOR NAKED",
+	        'LIMPIEZA O CAMBIO MAYOR NAKED',
 	        70,
 	        p_currency_factor * 23.0,
 	        1,
@@ -5913,7 +5949,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LUBRICACION MAYOR NAKED",
+	        'LUBRICACION MAYOR NAKED',
 	        40,
 	        p_currency_factor * 6.0,
 	        1,
@@ -5921,7 +5957,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MAYOR NAKED",
+	        'ENGRASE MAYOR NAKED',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5929,7 +5965,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MAYOR NAKED",
+	        'CALIBRACION MAYOR NAKED',
 	        70,
 	        p_currency_factor * 11.5,
 	        1,
@@ -5937,7 +5973,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MAYOR NAKED",
+	        'REAPRIETE MAYOR NAKED',
 	        20,
 	        p_currency_factor * 1.5,
 	        1,
@@ -5945,7 +5981,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "DESARME Y ARME DE CABEZAL",
+	        'DESARME Y ARME DE CABEZAL',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5953,7 +5989,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "DESARME Y ARME DE MOTOR",
+	        'DESARME Y ARME DE MOTOR',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5961,7 +5997,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE VIA",
+	        'INSTALACION DE VIA',
 	        30,
 	        p_currency_factor * 8.0,
 	        1,
@@ -5969,7 +6005,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REGULACION DE CADENA",
+	        'REGULACION DE CADENA',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -5977,7 +6013,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE LLAVIN",
+	        'REVISION DE LLAVIN',
 	        60,
 	        p_currency_factor * 5.0,
 	        1,
@@ -5985,7 +6021,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "VERIFICAR FUGAS DE FLUIDOS",
+	        'VERIFICAR FUGAS DE FLUIDOS',
 	        5,
 	        p_currency_factor * 0.0,
 	        1,
@@ -5993,7 +6029,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE VOLTAJE Y NIVEL DE ACIDO DE BATERIA",
+	        'REVISION DE VOLTAJE Y NIVEL DE ACIDO DE BATERIA',
 	        10,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6001,7 +6037,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ACEITE",
+	        'CAMBIO DE ACEITE',
 	        10,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6009,7 +6045,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE FILTRO DE AIRE",
+	        'LIMPIEZA DE FILTRO DE AIRE',
 	        10,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6017,7 +6053,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "VERIFICAR Y DRENAR CARBURADOR",
+	        'VERIFICAR Y DRENAR CARBURADOR',
 	        20,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6025,7 +6061,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "VERIFICAR Y CALIBRAR BUJIAS",
+	        'VERIFICAR Y CALIBRAR BUJIAS',
 	        30,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6033,7 +6069,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION DE VALVULAS",
+	        'CALIBRACION DE VALVULAS',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6041,7 +6077,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "VERIFICACION MTTO GARANTIA",
+	        'VERIFICACION MTTO GARANTIA',
 	        15,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6049,7 +6085,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA O CAMBIO MTTO GARANTIA",
+	        'LIMPIEZA O CAMBIO MTTO GARANTIA',
 	        30,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6057,7 +6093,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CALIBRACION MTTO GARANTIA",
+	        'CALIBRACION MTTO GARANTIA',
 	        20,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6065,7 +6101,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE MTTO GARANTIA",
+	        'REAPRIETE MTTO GARANTIA',
 	        10,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6073,7 +6109,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE VENTILADOR DE RADIADOR",
+	        'CAMBIO DE VENTILADOR DE RADIADOR',
 	        120,
 	        p_currency_factor * 30.0,
 	        1,
@@ -6081,7 +6117,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REPARACION DE PISTONES DE FRENO",
+	        'REPARACION DE PISTONES DE FRENO',
 	        30,
 	        p_currency_factor * 12.0,
 	        1,
@@ -6089,7 +6125,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PATA DE PARQUEO",
+	        'CAMBIO DE PATA DE PARQUEO',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -6097,7 +6133,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ZAPATAS (DELANTERAS)",
+	        'CAMBIO DE ZAPATAS (DELANTERAS)',
 	        20,
 	        p_currency_factor * 3.0,
 	        1,
@@ -6105,7 +6141,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ZAPATAS (TRASERAS)",
+	        'CAMBIO DE ZAPATAS (TRASERAS)',
 	        20,
 	        p_currency_factor * 4.0,
 	        1,
@@ -6113,7 +6149,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BOBINA DE MAGNETO",
+	        'CAMBIO DE BOBINA DE MAGNETO',
 	        50,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6121,7 +6157,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE CADENILLA DE TIEMPO",
+	        'CAMBIO DE CADENILLA DE TIEMPO',
 	        60,
 	        p_currency_factor * 30.0,
 	        1,
@@ -6129,7 +6165,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENGRASE MTTO GARANTIA",
+	        'ENGRASE MTTO GARANTIA',
 	        50,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6137,7 +6173,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ARMADO DE CARENADO ",
+	        'ARMADO DE CARENADO ',
 	        180,
 	        p_currency_factor * 40.0,
 	        1,
@@ -6145,7 +6181,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LAVADO DE MOTOCICLETA",
+	        'LAVADO DE MOTOCICLETA',
 	        20,
 	        p_currency_factor * 2.0,
 	        1,
@@ -6153,7 +6189,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REMACHADO DE PRENSA",
+	        'REMACHADO DE PRENSA',
 	        0,
 	        p_currency_factor * 65.0,
 	        1,
@@ -6161,7 +6197,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REPARACION DE ROSCA DE DRENADO DE ACEITE",
+	        'REPARACION DE ROSCA DE DRENADO DE ACEITE',
 	        30,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6169,7 +6205,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SOLDADURA DE RIN",
+	        'SOLDADURA DE RIN',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6177,7 +6213,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SOLDADURA DE CLABLE",
+	        'SOLDADURA DE CLABLE',
 	        0,
 	        p_currency_factor * 2.0,
 	        1,
@@ -6185,7 +6221,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE LLANTA TRASERA",
+	        'REVISION DE LLANTA TRASERA',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6193,7 +6229,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ACENTADO DE VALVULAS",
+	        'ACENTADO DE VALVULAS',
 	        0,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6201,7 +6237,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE FRENO DELANTERO",
+	        'REVISION DE FRENO DELANTERO',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -6209,7 +6245,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE FRENO TRASERO",
+	        'REVISION DE FRENO TRASERO',
 	        25,
 	        p_currency_factor * 5.0,
 	        1,
@@ -6217,7 +6253,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE SISTEMA ELECTRICO",
+	        'REVISION DE SISTEMA ELECTRICO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6225,7 +6261,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "MOLDURA LADO DERECHO",
+	        'MOLDURA LADO DERECHO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6233,7 +6269,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "AFINADO MAYOR",
+	        'AFINADO MAYOR',
 	        0,
 	        p_currency_factor * 65.0,
 	        1,
@@ -6241,7 +6277,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LAVADO DE TANQUE",
+	        'LAVADO DE TANQUE',
 	        40,
 	        p_currency_factor * 20.0,
 	        1,
@@ -6249,7 +6285,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE SLIDERS",
+	        'INSTALACION DE SLIDERS',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6257,7 +6293,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION Y CALIBRACION DE CARBURACION",
+	        'REVISION Y CALIBRACION DE CARBURACION',
 	        60,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6265,7 +6301,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REAPRIETE DE SLIDERS",
+	        'REAPRIETE DE SLIDERS',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6273,7 +6309,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EJE DELANTERO",
+	        'CAMBIO DE EJE DELANTERO',
 	        15,
 	        p_currency_factor * 3.0,
 	        1,
@@ -6281,7 +6317,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE BOBINA DE CARGA",
+	        'REVISION DE BOBINA DE CARGA',
 	        20,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6289,7 +6325,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE AMPOLLETA DE NEUTRO",
+	        'CAMBIO DE AMPOLLETA DE NEUTRO',
 	        60,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6297,7 +6333,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "INSTALACION DE HALOGENOS LED",
+	        'INSTALACION DE HALOGENOS LED',
 	        60,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6305,7 +6341,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "SOLDADURA DE CARTER",
+	        'SOLDADURA DE CARTER',
 	        180,
 	        p_currency_factor * 55.0,
 	        1,
@@ -6313,7 +6349,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISION DE FILTRO DE AIRE",
+	        'REVISION DE FILTRO DE AIRE',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -6321,7 +6357,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISI�N DE KIT DE TRACCI�N",
+	        'REVISIÓN DE KIT DE TRACCIÓN',
 	        20,
 	        p_currency_factor * 5.0,
 	        1,
@@ -6329,7 +6365,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TOLVA (DERECHA)",
+	        'CAMBIO DE TOLVA (DERECHA)',
 	        20,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6337,7 +6373,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE AMORTIGUADORES",
+	        'CAMBIO DE AMORTIGUADORES',
 	        60,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6345,7 +6381,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TOLVA (IZQUIERDA)",
+	        'CAMBIO DE TOLVA (IZQUIERDA)',
 	        20,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6353,7 +6389,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE KIT DE TRACCION",
+	        'CAMBIO DE KIT DE TRACCION',
 	        40,
 	        p_currency_factor * 20.0,
 	        1,
@@ -6361,7 +6397,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ORRINES",
+	        'CAMBIO DE ORRINES',
 	        0,
 	        p_currency_factor * 1.0,
 	        1,
@@ -6369,7 +6405,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REHASER ROSCA ",
+	        'REHASER ROSCA ',
 	        30,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6377,7 +6413,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "TRABAJO CON FIBRA",
+	        'TRABAJO CON FIBRA',
 	        420,
 	        p_currency_factor * 45.0,
 	        1,
@@ -6385,7 +6421,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENDEREZADO DE CHASIS",
+	        'ENDEREZADO DE CHASIS',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6393,7 +6429,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ENDEREZADO DE YUGO",
+	        'ENDEREZADO DE YUGO',
 	        0,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6401,7 +6437,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Desarme",
+	        'Desarme',
 	        30,
 	        p_currency_factor * 3.0,
 	        1,
@@ -6409,7 +6445,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PERNOS DE CATARINA",
+	        'CAMBIO DE PERNOS DE CATARINA',
 	        30,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6417,7 +6453,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE DELANTERA (B): FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS",
+	        'PARTE DELANTERA (B): FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS',
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6425,7 +6461,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE MEDIA (B): BUJIA, FILTRO DE GASOLINA",
+	        'PARTE MEDIA (B): BUJIA, FILTRO DE GASOLINA',
 	        10,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6433,7 +6469,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE TRASERA (B): FRENOS TRASEROS, EJE TRASERO, KIT DE TRACCION",
+	        'PARTE TRASERA (B): FRENOS TRASEROS, EJE TRASERO, KIT DE TRACCION',
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6441,7 +6477,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ACEITE",
+	        'CAMBIO DE ACEITE',
 	        20,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6449,7 +6485,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE DELANTERA (M): FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS",
+	        'PARTE DELANTERA (M): FRENOS DELANTEROS, EJE DELANTERO, CABLES, MANECILLAS',
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6457,7 +6493,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE MEDIA (M): PUNTERIAS, BUJIA, CARBURADOR, FILTRO DE GASOLINA, FILTRO DE AIRE, EJE DE TIJERA, BATERIA",
+	        'PARTE MEDIA (M): PUNTERIAS, BUJIA, CARBURADOR, FILTRO DE GASOLINA, FILTRO DE AIRE, EJE DE TIJERA, BATERIA',
 	        90,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6465,7 +6501,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PARTE TRASERA (M): FRENOS TRASEROS, KIT DE TRACCION",
+	        'PARTE TRASERA (M): FRENOS TRASEROS, KIT DE TRACCION',
 	        40,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6473,7 +6509,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE ACEITE (M): ACEITE, REAPRIETE GENERAL, LLANTAS",
+	        'CAMBIO DE ACEITE (M): ACEITE, REAPRIETE GENERAL, LLANTAS',
 	        30,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6481,7 +6517,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE BAJA ",
+	        'CAMBIO DE BAJA ',
 	        130,
 	        p_currency_factor * 25.0,
 	        1,
@@ -6489,7 +6525,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISON PARTE TRASERA  POR ENDEREZAR",
+	        'REVISON PARTE TRASERA  POR ENDEREZAR',
 	        120,
 	        p_currency_factor * 35.0,
 	        1,
@@ -6497,7 +6533,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE RETENEDORES DE SIGUE�AL ",
+	        'CAMBIO DE RETENEDORES DE SIGUEÑAL ',
 	        200,
 	        p_currency_factor * 25.0,
 	        1,
@@ -6505,7 +6541,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "DESARME Y PRESUPUESTO (MOTO CHOCADA) NIVEL 1",
+	        'DESARME Y PRESUPUESTO (MOTO CHOCADA) NIVEL 1',
 	        140,
 	        p_currency_factor * 35.0,
 	        1,
@@ -6513,7 +6549,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE LLANTA",
+	        'CAMBIO DE LLANTA',
 	        15,
 	        p_currency_factor * 3.5,
 	        1,
@@ -6521,7 +6557,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "Mantenimiento mayor con TOLVAS",
+	        'Mantenimiento mayor con TOLVAS',
 	        180,
 	        p_currency_factor * 45.0,
 	        1,
@@ -6529,7 +6565,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ARMADO DE MOTOR",
+	        'ARMADO DE MOTOR',
 	        500,
 	        p_currency_factor * 45.0,
 	        1,
@@ -6537,7 +6573,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ASENTADO DE VALVULAS",
+	        'ASENTADO DE VALVULAS',
 	        30,
 	        p_currency_factor * 45.0,
 	        1,
@@ -6545,7 +6581,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ASENTADO DE VALVULAS 5",
+	        'ASENTADO DE VALVULAS 5',
 	        30,
 	        p_currency_factor * 45.0,
 	        1,
@@ -6553,7 +6589,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "ASENTADO DE 5 VALVULAS",
+	        'ASENTADO DE 5 VALVULAS',
 	        30,
 	        p_currency_factor * 45.0,
 	        1,
@@ -6561,7 +6597,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LIMPIEZA DE BOBINAS DE BAJA",
+	        'LIMPIEZA DE BOBINAS DE BAJA',
 	        15,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6569,7 +6605,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "LAVADO DE MOTOR ",
+	        'LAVADO DE MOTOR ',
 	        20,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6577,7 +6613,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE TIMON",
+	        'CAMBIO DE TIMON',
 	        20,
 	        p_currency_factor * 10.0,
 	        1,
@@ -6585,7 +6621,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE PEDAL DE VELOCIDADES",
+	        'CAMBIO DE PEDAL DE VELOCIDADES',
 	        15,
 	        p_currency_factor * 5.0,
 	        1,
@@ -6593,7 +6629,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE MANGUILLOS",
+	        'CAMBIO DE MANGUILLOS',
 	        15,
 	        p_currency_factor * 5.0,
 	        1,
@@ -6601,7 +6637,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "CAMBIO DE EJE DE CAMBIOS",
+	        'CAMBIO DE EJE DE CAMBIOS',
 	        20,
 	        p_currency_factor * 12.0,
 	        1,
@@ -6609,7 +6645,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "REVISI�N DE BALEROS ",
+	        'REVISIÓN DE BALEROS ',
 	        20,
 	        p_currency_factor * 15.0,
 	        1,
@@ -6617,7 +6653,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICADO DE CHASIS",
+	        'RECTIFICADO DE CHASIS',
 	        215,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6625,7 +6661,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "sellar ojo de bomba de freno delantera",
+	        'sellar ojo de bomba de freno delantera',
 	        25,
 	        p_currency_factor * 5.0,
 	        1,
@@ -6633,7 +6669,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICADO DE BARRAS",
+	        'RECTIFICADO DE BARRAS',
 	        215,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6641,7 +6677,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "RECTIFICADO DE RIN",
+	        'RECTIFICADO DE RIN',
 	        215,
 	        p_currency_factor * 60.0,
 	        1,
@@ -6649,7 +6685,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "PINTADO ESPEFICICO",
+	        'PINTADO ESPEFICICO',
 	        215,
 	        p_currency_factor * 0.0,
 	        1,
@@ -6657,7 +6693,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	    ), (
-	        "cambio de chiclero",
+	        'cambio de chiclero',
 	        30,
 	        p_currency_factor * 5.95,
 	        1,
@@ -6665,7 +6701,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	        CURRENT_TIMESTAMP,
 	        CURRENT_TIMESTAMP
 	), (
-	    "LUBRICACION DE EJE DE RIN",
+	    'LUBRICACION DE EJE DE RIN',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -6673,7 +6709,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LUBRICACION DE CABLES",
+	    'LUBRICACION DE CABLES',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -6681,7 +6717,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "FILTRO DE ACEITE QUTE",
+	    'FILTRO DE ACEITE QUTE',
 	    10,
 	    p_currency_factor * 10.0,
 	    1,
@@ -6689,7 +6725,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RAMAL COMPLETO",
+	    'CAMBIO DE RAMAL COMPLETO',
 	    220,
 	    p_currency_factor * 48.0,
 	    1,
@@ -6697,7 +6733,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DIAGNOSTICO REVISION ELECTRICA RAMAL COMPLETO",
+	    'DIAGNOSTICO REVISION ELECTRICA RAMAL COMPLETO',
 	    220,
 	    p_currency_factor * 45.0,
 	    1,
@@ -6705,7 +6741,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CONTACTOS ELETRICOS",
+	    'LIMPIEZA DE CONTACTOS ELETRICOS',
 	    30,
 	    p_currency_factor * 15.0,
 	    1,
@@ -6713,7 +6749,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE MANDO IZQUIERDO ",
+	    'CAMBIO DE MANDO IZQUIERDO ',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -6721,7 +6757,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE MANGUILLOS",
+	    'INSTALACION DE MANGUILLOS',
 	    30,
 	    p_currency_factor * 15.0,
 	    1,
@@ -6729,7 +6765,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION DE SISTEMA ELECTRICO",
+	    'REPARACION DE SISTEMA ELECTRICO',
 	    2890,
 	    p_currency_factor * 0.0,
 	    1,
@@ -6737,7 +6773,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACI�N DE STOP",
+	    'INSTALACIÓN DE STOP',
 	    30,
 	    p_currency_factor * 0.0,
 	    1,
@@ -6745,7 +6781,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PORTEO DE CULATA",
+	    'PORTEO DE CULATA',
 	    1820,
 	    p_currency_factor * 0.0,
 	    1,
@@ -6753,7 +6789,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION SOPORTE DE TIM�N ",
+	    'REPARACION SOPORTE DE TIMÓN ',
 	    150,
 	    p_currency_factor * 26.0,
 	    1,
@@ -6761,7 +6797,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE SOPORTE ",
+	    'INSTALACION DE SOPORTE ',
 	    30,
 	    p_currency_factor * 12.0,
 	    1,
@@ -6769,7 +6805,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE VIAS ",
+	    'CAMBIO DE VIAS ',
 	    35,
 	    p_currency_factor * 10.0,
 	    1,
@@ -6777,7 +6813,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE CATARINA",
+	    'CAMBIO DE CATARINA',
 	    30,
 	    p_currency_factor * 12.0,
 	    1,
@@ -6785,7 +6821,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "AJUSTE HULES DE TANQUE",
+	    'AJUSTE HULES DE TANQUE',
 	    25,
 	    p_currency_factor * 10.0,
 	    1,
@@ -6793,7 +6829,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SERVICIO DE GR�A",
+	    'SERVICIO DE GRÚA',
 	    120,
 	    p_currency_factor * 12.0,
 	    1,
@@ -6801,7 +6837,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DELIVERY",
+	    'DELIVERY',
 	    45,
 	    p_currency_factor * 12.0,
 	    1,
@@ -6809,7 +6845,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "RECTIFICADO DE DISCO DE FRENO",
+	    'RECTIFICADO DE DISCO DE FRENO',
 	    45,
 	    p_currency_factor * 25.0,
 	    1,
@@ -6817,7 +6853,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SIGUE�AL",
+	    'CAMBIO DE SIGUEÑAL',
 	    120,
 	    p_currency_factor * 80.0,
 	    1,
@@ -6825,7 +6861,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE CONJUNTO DE CILINDRO",
+	    'CAMBIO DE CONJUNTO DE CILINDRO',
 	    45,
 	    p_currency_factor * 35.0,
 	    1,
@@ -6833,7 +6869,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE ARBOL DE LEVAS",
+	    'CAMBIO DE ARBOL DE LEVAS',
 	    215,
 	    p_currency_factor * 30.0,
 	    1,
@@ -6841,7 +6877,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Cambio de resorte pata de freno",
+	    'Cambio de resorte pata de freno',
 	    15,
 	    p_currency_factor * 3.0,
 	    1,
@@ -6849,7 +6885,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Sondeo de radiador",
+	    'Sondeo de radiador',
 	    60,
 	    p_currency_factor * 45.0,
 	    1,
@@ -6857,7 +6893,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE TAP�N DE DRENADO DE ACEITE",
+	    'CAMBIO DE TAPÓN DE DRENADO DE ACEITE',
 	    10,
 	    p_currency_factor * 3.0,
 	    1,
@@ -6865,7 +6901,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "TAPISADO",
+	    'TAPISADO',
 	    60,
 	    p_currency_factor * 0.0,
 	    1,
@@ -6873,7 +6909,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE EJE DE CAMBIOS ",
+	    'REVISION DE EJE DE CAMBIOS ',
 	    50,
 	    p_currency_factor * 15.0,
 	    1,
@@ -6881,7 +6917,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE SISTEMA DE CARGA",
+	    'REVISION DE SISTEMA DE CARGA',
 	    30,
 	    p_currency_factor * 20.0,
 	    1,
@@ -6889,7 +6925,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE MANECILLA COMPLETA",
+	    'CAMBIO DE MANECILLA COMPLETA',
 	    10,
 	    p_currency_factor * 5.0,
 	    1,
@@ -6897,7 +6933,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SELENOIDE ",
+	    'CAMBIO DE SELENOIDE ',
 	    10,
 	    p_currency_factor * 5.0,
 	    1,
@@ -6905,7 +6941,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE MOTOR DE ARRANQUE",
+	    'CAMBIO DE MOTOR DE ARRANQUE',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -6913,7 +6949,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Ajuste de pedal de freno",
+	    'Ajuste de pedal de freno',
 	    20,
 	    p_currency_factor * 4.0,
 	    1,
@@ -6921,7 +6957,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACI�N DE FUGA DE ACEITE",
+	    'REPARACIÓN DE FUGA DE ACEITE',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -6929,7 +6965,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ARME DE MOTOR",
+	    'ARME DE MOTOR',
 	    300,
 	    p_currency_factor * 40.0,
 	    1,
@@ -6937,7 +6973,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION DE ESCAPE ",
+	    'REPARACION DE ESCAPE ',
 	    69,
 	    p_currency_factor * 15.0,
 	    1,
@@ -6945,7 +6981,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE FAJA DE TRACCION",
+	    'REVISION DE FAJA DE TRACCION',
 	    55,
 	    p_currency_factor * 15.0,
 	    1,
@@ -6953,7 +6989,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CODIFICACION DE COMPUTADORA",
+	    'CODIFICACION DE COMPUTADORA',
 	    78,
 	    p_currency_factor * 45.0,
 	    1,
@@ -6961,7 +6997,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE CUNAS ",
+	    'CAMBIO DE CUNAS ',
 	    59,
 	    p_currency_factor * 22.0,
 	    1,
@@ -6969,7 +7005,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE CILINDRO",
+	    'CAMBIO DE CILINDRO',
 	    30,
 	    p_currency_factor * 30.0,
 	    1,
@@ -6977,7 +7013,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESCARBONADO DE CULATA",
+	    'DESCARBONADO DE CULATA',
 	    45,
 	    p_currency_factor * 40.0,
 	    1,
@@ -6985,7 +7021,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BUSHING DE CATARINA",
+	    'CAMBIO DE BUSHING DE CATARINA',
 	    60,
 	    p_currency_factor * 45.0,
 	    1,
@@ -6993,7 +7029,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BARRAS",
+	    'CAMBIO DE BARRAS',
 	    45,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7001,7 +7037,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BALERO DE CATARINA",
+	    'CAMBIO DE BALERO DE CATARINA',
 	    35,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7009,7 +7045,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ARMADO DE CARROCER�A",
+	    'ARMADO DE CARROCERÍA',
 	    130,
 	    p_currency_factor * 40.0,
 	    1,
@@ -7017,7 +7053,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PARQUEO DIARIO",
+	    'PARQUEO DIARIO',
 	    0,
 	    p_currency_factor * 1.0,
 	    1,
@@ -7025,7 +7061,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "FABRICACION DE EMPAQUES",
+	    'FABRICACION DE EMPAQUES',
 	    59,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7033,7 +7069,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE BOMBA DE GASOLINA ",
+	    'LIMPIEZA DE BOMBA DE GASOLINA ',
 	    30,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7041,7 +7077,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE FILTRO DE GASOLINA",
+	    'LIMPIEZA DE FILTRO DE GASOLINA',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7049,7 +7085,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE FILTRO DE AIRE",
+	    'CAMBIO DE FILTRO DE AIRE',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7057,7 +7093,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUES DE MOTOR KAWASAKI 650",
+	    'CAMBIO DE EMPAQUES DE MOTOR KAWASAKI 650',
 	    200,
 	    p_currency_factor * 50.0,
 	    1,
@@ -7065,7 +7101,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "MANTENIENTO MEDIO",
+	    'MANTENIENTO MEDIO',
 	    105,
 	    p_currency_factor * 35.0,
 	    1,
@@ -7073,7 +7109,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESARMADO Y ARMADO DE MOTOR",
+	    'DESARMADO Y ARMADO DE MOTOR',
 	    0,
 	    p_currency_factor * 80.0,
 	    1,
@@ -7081,7 +7117,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA EN CHAS�S",
+	    'SOLDADURA EN CHASÍS',
 	    90,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7089,7 +7125,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SELLOS DE BARRAS",
+	    'CAMBIO DE SELLOS DE BARRAS',
 	    90,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7097,7 +7133,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "cambio de switch de vias",
+	    'cambio de switch de vias',
 	    25,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7105,7 +7141,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "cambio de switch de encendido ",
+	    'cambio de switch de encendido ',
 	    25,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7113,7 +7149,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION DE VIA ",
+	    'REPARACION DE VIA ',
 	    20,
 	    p_currency_factor * 3.5,
 	    1,
@@ -7121,7 +7157,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Soldadura de pata lateral",
+	    'Soldadura de pata lateral',
 	    60,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7129,7 +7165,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESARME DE MOTOR ",
+	    'DESARME DE MOTOR ',
 	    60,
 	    p_currency_factor * 40.0,
 	    1,
@@ -7137,7 +7173,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "armado de motor",
+	    'armado de motor',
 	    60,
 	    p_currency_factor * 40.0,
 	    1,
@@ -7145,7 +7181,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "diagnostico de piezas de motor ",
+	    'diagnostico de piezas de motor ',
 	    25,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7153,7 +7189,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Lavado de piezas de motor",
+	    'Lavado de piezas de motor',
 	    25,
 	    p_currency_factor * 0.0,
 	    1,
@@ -7161,7 +7197,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "EXTRACCION DE PERNO TORNO",
+	    'EXTRACCION DE PERNO TORNO',
 	    128,
 	    p_currency_factor * 32.0,
 	    1,
@@ -7169,7 +7205,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DIAGNOSTICO Y CORRECCION",
+	    'DIAGNOSTICO Y CORRECCION',
 	    60,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7177,7 +7213,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE FOCO DE SILVIN A LED H4",
+	    'CAMBIO DE FOCO DE SILVIN A LED H4',
 	    60,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7185,7 +7221,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SELLOS DE BARRAS,SIN PATA DOBLE 300cc-6000cc",
+	    'CAMBIO DE SELLOS DE BARRAS,SIN PATA DOBLE 300cc-6000cc',
 	    120,
 	    p_currency_factor * 30.0,
 	    1,
@@ -7193,7 +7229,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO O LIMPIEZA DE SENSOR DE VELOCIMETRO",
+	    'CAMBIO O LIMPIEZA DE SENSOR DE VELOCIMETRO',
 	    30,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7201,7 +7237,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA Y CORRECCI�N DE CONTACTOS",
+	    'LIMPIEZA Y CORRECCIÓN DE CONTACTOS',
 	    60,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7209,7 +7245,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE ACEITE DE BARRAS KAWASAKI",
+	    'CAMBIO DE ACEITE DE BARRAS KAWASAKI',
 	    120,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7217,7 +7253,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE LEVA DE FRENO",
+	    'CAMBIO DE LEVA DE FRENO',
 	    30,
 	    p_currency_factor * 4.0,
 	    1,
@@ -7225,7 +7261,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUES YBR 125",
+	    'CAMBIO DE EMPAQUES YBR 125',
 	    60,
 	    p_currency_factor * 30.0,
 	    1,
@@ -7233,7 +7269,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE CUNAS 300CC + 1000CC",
+	    'REVISION DE CUNAS 300CC + 1000CC',
 	    120,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7241,7 +7277,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE CUNAS 300CC -1000CC",
+	    'CAMBIO DE CUNAS 300CC -1000CC',
 	    120,
 	    p_currency_factor * 40.0,
 	    1,
@@ -7249,7 +7285,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE ACEITE Y FILTRO DE ACEITE DE MOTOR 300CC -1000CC",
+	    'CAMBIO DE ACEITE Y FILTRO DE ACEITE DE MOTOR 300CC -1000CC',
 	    30,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7257,7 +7293,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUE DE PUNTER�A NS200-NS125",
+	    'CAMBIO DE EMPAQUE DE PUNTERÍA NS200-NS125',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7265,7 +7301,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION ELECTRICA MOTOCICLETA INYECTADA",
+	    'REVISION ELECTRICA MOTOCICLETA INYECTADA',
 	    60,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7273,7 +7309,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESARME DE BARRAS",
+	    'DESARME DE BARRAS',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7281,7 +7317,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SELLOS DE BARRAS",
+	    'CAMBIO DE SELLOS DE BARRAS',
 	    45,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7289,7 +7325,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ARME DE BARRAS",
+	    'ARME DE BARRAS',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7297,7 +7333,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESARME DE CABEZAL DE MOTOR",
+	    'DESARME DE CABEZAL DE MOTOR',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7305,7 +7341,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ARMADO DE CABEZAL DE MOTOR",
+	    'ARMADO DE CABEZAL DE MOTOR',
 	    60,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7313,7 +7349,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISI�N Y LIMPIEZA DE KALIPER",
+	    'REVISIÓN Y LIMPIEZA DE KALIPER',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7321,7 +7357,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Medici�n de compresion de motor 300cc-1000cc",
+	    'Medición de compresion de motor 300cc-1000cc',
 	    30,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7329,7 +7365,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    " Medici�n de compresion de motor 100cc-200cc",
+	    ' Medición de compresion de motor 100cc-200cc',
 	    10,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7337,7 +7373,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CARBURADOR NS160-NS200",
+	    'LIMPIEZA DE CARBURADOR NS160-NS200',
 	    45,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7345,7 +7381,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BUJIAS NS",
+	    'CAMBIO DE BUJIAS NS',
 	    45,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7353,7 +7389,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE FILTRO DE AIRE NS ",
+	    'CAMBIO DE FILTRO DE AIRE NS ',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7361,7 +7397,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUES BOMBA DE ACEITE",
+	    'CAMBIO DE EMPAQUES BOMBA DE ACEITE',
 	    90,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7369,7 +7405,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RETENEDOR DE TAPA CLUCTH",
+	    'CAMBIO DE RETENEDOR DE TAPA CLUCTH',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7377,7 +7413,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ALQUILER DE MOTO ",
+	    'ALQUILER DE MOTO ',
 	    1440,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7385,7 +7421,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE INYECTORES",
+	    'LIMPIEZA DE INYECTORES',
 	    60,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7393,7 +7429,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE V�LVULA DE GASOLINA NS200",
+	    'CAMBIO DE VÁLVULA DE GASOLINA NS200',
 	    60,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7401,7 +7437,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA EN TANQUE DE GASOLINA",
+	    'SOLDADURA EN TANQUE DE GASOLINA',
 	    240,
 	    p_currency_factor * 35.0,
 	    1,
@@ -7409,7 +7445,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BALINERA DE MAGNETO ",
+	    'CAMBIO DE BALINERA DE MAGNETO ',
 	    40,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7417,7 +7453,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISI�N DE BALINERA DE MAGNETO ",
+	    'REVISIÓN DE BALINERA DE MAGNETO ',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7425,7 +7461,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ESCALA DE DIAGN�STICO EL�CTRICO ",
+	    'ESCALA DE DIAGNÓSTICO ELÉCTRICO ',
 	    160,
 	    p_currency_factor * 40.0,
 	    1,
@@ -7433,7 +7469,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION DE ROSCA ",
+	    'REPARACION DE ROSCA ',
 	    60,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7441,7 +7477,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSPECCION DE BOMBA DE ACEITE",
+	    'INSPECCION DE BOMBA DE ACEITE',
 	    30,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7449,7 +7485,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PINTADO DE RIN DELANTERO ",
+	    'PINTADO DE RIN DELANTERO ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7457,7 +7493,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE BUJ�AS NS ",
+	    'LIMPIEZA DE BUJÍAS NS ',
 	    45,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7465,7 +7501,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE O-RIN DE MOTOR DE ARRANQUE",
+	    'CAMBIO DE O-RIN DE MOTOR DE ARRANQUE',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7473,7 +7509,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE MEMBRANA DE CARBURADOR",
+	    'CAMBIO DE MEMBRANA DE CARBURADOR',
 	    25,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7481,7 +7517,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA DE CABLE ",
+	    'SOLDADURA DE CABLE ',
 	    15,
 	    p_currency_factor * 2.0,
 	    1,
@@ -7489,7 +7525,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE SWITH ENCENDIDO Y APAGADO",
+	    'INSTALACION DE SWITH ENCENDIDO Y APAGADO',
 	    20,
 	    p_currency_factor * 6.0,
 	    1,
@@ -7497,7 +7533,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BALEROS DE EJE DE LEVAS",
+	    'CAMBIO DE BALEROS DE EJE DE LEVAS',
 	    60,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7505,7 +7541,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CARBURADOR KAWA 250",
+	    'LIMPIEZA DE CARBURADOR KAWA 250',
 	    90,
 	    p_currency_factor * 27.0,
 	    1,
@@ -7513,7 +7549,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE FUGAS 360",
+	    'REVISION DE FUGAS 360',
 	    45,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7521,7 +7557,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LAVADO DE MOTO ",
+	    'LAVADO DE MOTO ',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7529,7 +7565,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE CADENILLA DE MOTOR",
+	    'REVISION DE CADENILLA DE MOTOR',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7537,7 +7573,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE EJE DE LEVAS",
+	    'REVISION DE EJE DE LEVAS',
 	    45,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7545,7 +7581,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE BOMBA DE FRENO DELANTERO",
+	    'REVISION DE BOMBA DE FRENO DELANTERO',
 	    45,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7553,7 +7589,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE TABLERO DIGITAL",
+	    'REVISION DE TABLERO DIGITAL',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7561,7 +7597,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "AISLAR CABLES",
+	    'AISLAR CABLES',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7569,7 +7605,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA EN ESPEJO IZQUIERDO",
+	    'SOLDADURA EN ESPEJO IZQUIERDO',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7577,7 +7613,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE V�AS ",
+	    'REVISION DE VÍAS ',
 	    30,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7585,7 +7621,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE DISCOS DE CLUCHT NS200",
+	    'CAMBIO DE DISCOS DE CLUCHT NS200',
 	    90,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7593,7 +7629,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "MODIFICACI�N DE CONFIGURACI�N MAGN�TICA ",
+	    'MODIFICACIÓN DE CONFIGURACIÓN MAGNÉTICA ',
 	    360,
 	    p_currency_factor * 90.0,
 	    1,
@@ -7601,7 +7637,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA DE RADIADOR",
+	    'SOLDADURA DE RADIADOR',
 	    45,
 	    p_currency_factor * 17.0,
 	    1,
@@ -7609,7 +7645,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE CARGA BOBINA CDI Y REGULADOR DE VOLTAJE",
+	    'REVISION DE CARGA BOBINA CDI Y REGULADOR DE VOLTAJE',
 	    30,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7617,7 +7653,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ADAPTE DE PULSOR",
+	    'ADAPTE DE PULSOR',
 	    40,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7625,7 +7661,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ALINEADO DE RIN DELANTERO ",
+	    'ALINEADO DE RIN DELANTERO ',
 	    60,
 	    p_currency_factor * 14.8,
 	    1,
@@ -7633,7 +7669,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ALINEADO DE RIN TRASERO ",
+	    'ALINEADO DE RIN TRASERO ',
 	    60,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7641,7 +7677,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE V�AS ",
+	    'CAMBIO DE VÍAS ',
 	    30,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7649,7 +7685,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DIAGN�STICO Y CORRECCI�N DE PITO",
+	    'DIAGNÓSTICO Y CORRECCIÓN DE PITO',
 	    60,
 	    p_currency_factor * 25.0,
 	    1,
@@ -7657,7 +7693,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE TORNILLOS DE CARROCER�A ",
+	    'CAMBIO DE TORNILLOS DE CARROCERÍA ',
 	    25,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7665,7 +7701,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE MANGUERA DE RADIADOR NS200",
+	    'CAMBIO DE MANGUERA DE RADIADOR NS200',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7673,7 +7709,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ARME DE CABEZAL DE MOTOR",
+	    'ARME DE CABEZAL DE MOTOR',
 	    45,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7681,7 +7717,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ENDEREZADO DE REGULADORES",
+	    'ENDEREZADO DE REGULADORES',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7689,7 +7725,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "MANO DE OBRA",
+	    'MANO DE OBRA',
 	    400,
 	    p_currency_factor * 60.0,
 	    1,
@@ -7697,7 +7733,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUE DE CILINDRO",
+	    'CAMBIO DE EMPAQUE DE CILINDRO',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7705,7 +7741,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUE DE CULATA",
+	    'CAMBIO DE EMPAQUE DE CULATA',
 	    20,
 	    p_currency_factor * 6.0,
 	    1,
@@ -7713,7 +7749,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE SENSORES",
+	    'REVISION DE SENSORES',
 	    60,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7721,7 +7757,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Limpieza de ventilador ",
+	    'Limpieza de ventilador ',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7729,7 +7765,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Mantenimiento de carbones ",
+	    'Mantenimiento de carbones ',
 	    10,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7737,7 +7773,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA DE PARRILLA",
+	    'SOLDADURA DE PARRILLA',
 	    0,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7745,7 +7781,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ENDEREZADO SOPORTE SILVIN",
+	    'ENDEREZADO SOPORTE SILVIN',
 	    0,
 	    p_currency_factor * 18.0,
 	    1,
@@ -7753,7 +7789,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PRESUPUESTO",
+	    'PRESUPUESTO',
 	    75,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7761,7 +7797,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DIAGN�STICO DE PIEZAS DE MOTOR",
+	    'DIAGNÓSTICO DE PIEZAS DE MOTOR',
 	    25,
 	    p_currency_factor * 0.0,
 	    1,
@@ -7769,7 +7805,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE VALVULA DE LLANTA",
+	    'CAMBIO DE VALVULA DE LLANTA',
 	    25,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7777,7 +7813,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA,REGULACI�N Y ENGRASE DE CADENA",
+	    'LIMPIEZA,REGULACIÓN Y ENGRASE DE CADENA',
 	    15,
 	    p_currency_factor * 6.0,
 	    1,
@@ -7785,7 +7821,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Instalacion de portacelulares",
+	    'Instalacion de portacelulares',
 	    30,
 	    p_currency_factor * 7.0,
 	    1,
@@ -7793,7 +7829,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE FUGA DE GASOLINA ",
+	    'REVISION DE FUGA DE GASOLINA ',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7801,7 +7837,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CONTACTOS TPS",
+	    'LIMPIEZA DE CONTACTOS TPS',
 	    10,
 	    p_currency_factor * 2.0,
 	    1,
@@ -7809,7 +7845,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE PERNO ",
+	    'CAMBIO DE PERNO ',
 	    60,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7817,7 +7853,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "COLOCACION DE CARGADOR",
+	    'COLOCACION DE CARGADOR',
 	    20,
 	    p_currency_factor * 2.0,
 	    1,
@@ -7825,7 +7861,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SELLOS DE BOMBA DE AGUA NS200",
+	    'CAMBIO DE SELLOS DE BOMBA DE AGUA NS200',
 	    60,
 	    p_currency_factor * 20.0,
 	    1,
@@ -7833,7 +7869,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Instalacion Electrica",
+	    'Instalacion Electrica',
 	    120,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7841,7 +7877,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Extracci�n  de perno ",
+	    'Extracción  de perno ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7849,7 +7885,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE LUZ CORTESIA",
+	    'REVISION DE LUZ CORTESIA',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7857,7 +7893,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SWITCH VIAS INTERMITENTES ",
+	    'SWITCH VIAS INTERMITENTES ',
 	    60,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7865,7 +7901,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE SWITH PARA VIAS INTERMITENTES",
+	    'INSTALACION DE SWITH PARA VIAS INTERMITENTES',
 	    40,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7873,7 +7909,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION LLANTA ",
+	    'REPARACION LLANTA ',
 	    30,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7881,7 +7917,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE SIRENA",
+	    'REVISION DE SIRENA',
 	    25,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7889,7 +7925,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE AMPOLLETA DE FRENO DELANTERO",
+	    'REVISION DE AMPOLLETA DE FRENO DELANTERO',
 	    10,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7897,7 +7933,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Mantenimiento Full 125CC/150CC Con Orden De Proceso Ya Creada ",
+	    'Mantenimiento Full 125CC/150CC Con Orden De Proceso Ya Creada ',
 	    345,
 	    p_currency_factor * 35.0,
 	    1,
@@ -7905,7 +7941,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE SIRENA",
+	    'CAMBIO DE SIRENA',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7913,7 +7949,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PRESUPUESTO Y REPARACI�N DE MOTO INSERVIBLE ",
+	    'PRESUPUESTO Y REPARACIÓN DE MOTO INSERVIBLE ',
 	    360,
 	    p_currency_factor * 90.0,
 	    1,
@@ -7921,7 +7957,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA Y DIAGNOSTICO DE INYECTOR EN LABORATORIO",
+	    'LIMPIEZA Y DIAGNOSTICO DE INYECTOR EN LABORATORIO',
 	    120,
 	    p_currency_factor * 35.0,
 	    1,
@@ -7929,7 +7965,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE PROTECTORES DE MANECILLA",
+	    'INSTALACION DE PROTECTORES DE MANECILLA',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -7937,7 +7973,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE ACEITE DE CAJA TRANSMISION",
+	    'CAMBIO DE ACEITE DE CAJA TRANSMISION',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -7945,7 +7981,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE LUZ DE FRENO",
+	    'REVISION DE LUZ DE FRENO',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -7953,7 +7989,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Revisi�n de foco de farol",
+	    'Revisión de foco de farol',
 	    45,
 	    p_currency_factor * 12.0,
 	    1,
@@ -7961,7 +7997,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUE FILTRO DE ACEITE",
+	    'CAMBIO DE EMPAQUE FILTRO DE ACEITE',
 	    20,
 	    p_currency_factor * 3.0,
 	    1,
@@ -7969,7 +8005,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "AJUSTE DE MOTOR",
+	    'AJUSTE DE MOTOR',
 	    100,
 	    p_currency_factor * 70.0,
 	    1,
@@ -7977,7 +8013,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE O-RING DE MOTOR",
+	    'CAMBIO DE O-RING DE MOTOR',
 	    15,
 	    p_currency_factor * 5.0,
 	    1,
@@ -7985,7 +8021,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "EXTRACCION DE TORNILLOS DE BOMBA DE FRENO",
+	    'EXTRACCION DE TORNILLOS DE BOMBA DE FRENO',
 	    20,
 	    p_currency_factor * 4.0,
 	    1,
@@ -7993,7 +8029,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE LODERA UNIVERSAL",
+	    'INSTALACION DE LODERA UNIVERSAL',
 	    20,
 	    p_currency_factor * 6.0,
 	    1,
@@ -8001,7 +8037,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LAVADO Y PINTADO EN MOTOR",
+	    'LAVADO Y PINTADO EN MOTOR',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8009,7 +8045,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACI�N DE PORTAPLACA",
+	    'INSTALACIÓN DE PORTAPLACA',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8017,7 +8053,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Rectificado rin vespa",
+	    'Rectificado rin vespa',
 	    30,
 	    p_currency_factor * 30.0,
 	    1,
@@ -8025,7 +8061,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION DE NUCLEOS DE BOBINA ",
+	    'REPARACION DE NUCLEOS DE BOBINA ',
 	    65,
 	    p_currency_factor * 40.0,
 	    1,
@@ -8033,7 +8069,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ENDEREZADO DE PERNOS ",
+	    'ENDEREZADO DE PERNOS ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8041,7 +8077,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "SOLDADURA DE BASE DE POSAPIE",
+	    'SOLDADURA DE BASE DE POSAPIE',
 	    120,
 	    p_currency_factor * 30.0,
 	    1,
@@ -8049,7 +8085,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "RESET TRIP ODOMETRO ",
+	    'RESET TRIP ODOMETRO ',
 	    5,
 	    p_currency_factor * 0.0,
 	    1,
@@ -8057,7 +8093,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Pintura de cap�",
+	    'Pintura de capó',
 	    240,
 	    p_currency_factor * 75.0,
 	    1,
@@ -8065,7 +8101,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE LUZ DE SILVIN",
+	    'REVISION DE LUZ DE SILVIN',
 	    15,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8073,7 +8109,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PRE-DIAGNOSTICO",
+	    'PRE-DIAGNOSTICO',
 	    30,
 	    p_currency_factor * 0.0,
 	    1,
@@ -8081,7 +8117,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Torno",
+	    'Torno',
 	    60,
 	    p_currency_factor * 12.0,
 	    1,
@@ -8089,7 +8125,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE TOLVAS INTERNAS",
+	    'LIMPIEZA DE TOLVAS INTERNAS',
 	    30,
 	    p_currency_factor * 7.0,
 	    1,
@@ -8097,7 +8133,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE FILTRO DE AIRE MOTOS TODO TERRENO",
+	    'REVISION DE FILTRO DE AIRE MOTOS TODO TERRENO',
 	    15,
 	    p_currency_factor * 4.0,
 	    1,
@@ -8105,7 +8141,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION DE PATA DE PARQUEO",
+	    'INSTALACION DE PATA DE PARQUEO',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8113,7 +8149,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION LADO MAGNETO",
+	    'REVISION LADO MAGNETO',
 	    30,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8121,7 +8157,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "MANTENIMIENTO DE FRENO DELANTERO ",
+	    'MANTENIMIENTO DE FRENO DELANTERO ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8129,7 +8165,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE LODERA DELANTERA",
+	    'CAMBIO DE LODERA DELANTERA',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8137,7 +8173,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "COLOCACI�N DE TORNILLOS ",
+	    'COLOCACIÓN DE TORNILLOS ',
 	    35,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8145,7 +8181,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CULATA",
+	    'LIMPIEZA DE CULATA',
 	    40,
 	    p_currency_factor * 10.0,
 	    1,
@@ -8153,7 +8189,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CILINDRO",
+	    'LIMPIEZA DE CILINDRO',
 	    40,
 	    p_currency_factor * 10.0,
 	    1,
@@ -8161,7 +8197,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RETENEDOR DE TAPADERA MAGNETO",
+	    'CAMBIO DE RETENEDOR DE TAPADERA MAGNETO',
 	    5,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8169,7 +8205,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RETENEDOR DE TAPADERA MAGNETO",
+	    'CAMBIO DE RETENEDOR DE TAPADERA MAGNETO',
 	    5,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8177,7 +8213,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE PEDAL DE CAMBIOS",
+	    'REVISION DE PEDAL DE CAMBIOS',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8185,7 +8221,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE PEDAL DE CAMBIOS",
+	    'REVISION DE PEDAL DE CAMBIOS',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8193,7 +8229,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE PEDAL DE CAMBIOS",
+	    'REVISION DE PEDAL DE CAMBIOS',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8201,7 +8237,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESINSTALACI�N DE CONEXI�N ",
+	    'DESINSTALACIÓN DE CONEXIÓN ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8209,7 +8245,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REAPRETE DE PERNOS DE TIMON",
+	    'REAPRETE DE PERNOS DE TIMON',
 	    15,
 	    p_currency_factor * 3.75,
 	    1,
@@ -8217,7 +8253,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISI�N DE FUGA DE GASOLINA EN TANQUE ",
+	    'REVISIÓN DE FUGA DE GASOLINA EN TANQUE ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8225,7 +8261,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE KIT DE RODOS DE CADENILLA DE TIEMPO ",
+	    'CAMBIO DE KIT DE RODOS DE CADENILLA DE TIEMPO ',
 	    90,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8233,7 +8269,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "EXTRACCI�N DE BALEROS E INSTALACI�N ",
+	    'EXTRACCIÓN DE BALEROS E INSTALACIÓN ',
 	    80,
 	    p_currency_factor * 20.0,
 	    1,
@@ -8241,7 +8277,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION DE PRENSA ",
+	    'REPARACION DE PRENSA ',
 	    340,
 	    p_currency_factor * 85.0,
 	    1,
@@ -8249,7 +8285,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BAQUELITA DE ACELERADOR",
+	    'CAMBIO DE BAQUELITA DE ACELERADOR',
 	    30,
 	    p_currency_factor * 7.0,
 	    1,
@@ -8257,7 +8293,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ENGRASE DE BALEROS DE RIN DELANTERO ",
+	    'ENGRASE DE BALEROS DE RIN DELANTERO ',
 	    15,
 	    p_currency_factor * 7.0,
 	    1,
@@ -8265,7 +8301,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ENGRASE DE BALEROS DE RIN TRASERO ",
+	    'ENGRASE DE BALEROS DE RIN TRASERO ',
 	    25,
 	    p_currency_factor * 9.0,
 	    1,
@@ -8273,7 +8309,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "PRUEBA DE SENSORES CON ESCANER",
+	    'PRUEBA DE SENSORES CON ESCANER',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8281,7 +8317,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LECTURA DE CODIGO",
+	    'LECTURA DE CODIGO',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8289,7 +8325,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA Y CALIBRACION DE SENSORES ",
+	    'LIMPIEZA Y CALIBRACION DE SENSORES ',
 	    90,
 	    p_currency_factor * 23.0,
 	    1,
@@ -8297,7 +8333,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CUERPO DE ACELERACION ",
+	    'LIMPIEZA DE CUERPO DE ACELERACION ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8305,7 +8341,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO SOLUCI�N DE FRENO ",
+	    'CAMBIO SOLUCIÓN DE FRENO ',
 	    30,
 	    p_currency_factor * 7.0,
 	    1,
@@ -8313,7 +8349,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RODOS DE GUIA DE CADENILLA",
+	    'CAMBIO DE RODOS DE GUIA DE CADENILLA',
 	    90,
 	    p_currency_factor * 20.0,
 	    1,
@@ -8321,7 +8357,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BANCADA",
+	    'CAMBIO DE BANCADA',
 	    90,
 	    p_currency_factor * 20.0,
 	    1,
@@ -8329,7 +8365,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Cambio de cunas de direcci�n NS200",
+	    'Cambio de cunas de dirección NS200',
 	    120,
 	    p_currency_factor * 30.0,
 	    1,
@@ -8337,7 +8373,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA MOTOR DE ARRANQUE",
+	    'LIMPIEZA MOTOR DE ARRANQUE',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8345,7 +8381,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "TAPIZADO ",
+	    'TAPIZADO ',
 	    180,
 	    p_currency_factor * 45.0,
 	    1,
@@ -8353,7 +8389,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "TAPIZADO ",
+	    'TAPIZADO ',
 	    180,
 	    p_currency_factor * 45.0,
 	    1,
@@ -8361,7 +8397,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION LUZ PORTA PLACA",
+	    'REPARACION LUZ PORTA PLACA',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8369,7 +8405,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE BALERO CATARINA",
+	    'CAMBIO DE BALERO CATARINA',
 	    15,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8377,7 +8413,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESARME Y ARME DE CARENADO ",
+	    'DESARME Y ARME DE CARENADO ',
 	    180,
 	    p_currency_factor * 30.0,
 	    1,
@@ -8385,7 +8421,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACION CONTAINER REFRIGERANTE",
+	    'REPARACION CONTAINER REFRIGERANTE',
 	    45,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8393,7 +8429,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE BOMBA DE FRENO TRASERO",
+	    'REVISION DE BOMBA DE FRENO TRASERO',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8401,7 +8437,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE TRACCION",
+	    'REVISION DE TRACCION',
 	    45,
 	    p_currency_factor * 12.0,
 	    1,
@@ -8409,7 +8445,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RODOS DE CLUTCH",
+	    'CAMBIO DE RODOS DE CLUTCH',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8417,7 +8453,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE CAJA DE TRACCION AUTOMATICA�",
+	    'REVISION DE CAJA DE TRACCION AUTOMÁTICAº',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8425,7 +8461,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE DIRECCION ",
+	    'REVISION DE DIRECCION ',
 	    15,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8433,7 +8469,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE MONOSHOCK ",
+	    'REVISION DE MONOSHOCK ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8441,7 +8477,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "FABRICACI�N EMPAQUE TAPA MAGNETO ",
+	    'FABRICACIÓN EMPAQUE TAPA MAGNETO ',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8449,7 +8485,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "FABRICACI�N EMPAQUE TAPA MAGNETO ",
+	    'FABRICACIÓN EMPAQUE TAPA MAGNETO ',
 	    30,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8457,7 +8493,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE ACEITE PARA NS200",
+	    'CAMBIO DE ACEITE PARA NS200',
 	    30,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8465,7 +8501,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RELAY",
+	    'CAMBIO DE RELAY',
 	    30,
 	    p_currency_factor * 6.0,
 	    1,
@@ -8473,7 +8509,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Cambio de eje trasero",
+	    'Cambio de eje trasero',
 	    15,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8481,7 +8517,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Cambio de sensor de velocidades ",
+	    'Cambio de sensor de velocidades ',
 	    30,
 	    p_currency_factor * 7.5,
 	    1,
@@ -8489,7 +8525,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RIN TRASERO",
+	    'CAMBIO DE RIN TRASERO',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8497,7 +8533,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE CENTRIFUG� DE ACEITE ",
+	    'CAMBIO DE CENTRIFUGÓ DE ACEITE ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8505,7 +8541,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE TAPA DE CLUTCH",
+	    'CAMBIO DE TAPA DE CLUTCH',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8513,7 +8549,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE CLUTCH",
+	    'REVISION DE CLUTCH',
 	    90,
 	    p_currency_factor * 25.0,
 	    1,
@@ -8521,7 +8557,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE SILVIN",
+	    'REVISION DE SILVIN',
 	    20,
 	    p_currency_factor * 6.0,
 	    1,
@@ -8529,7 +8565,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "QUITAR Y PONER CARBURADOR CON  MANIFUL",
+	    'QUITAR Y PONER CARBURADOR CON  MANIFUL',
 	    30,
 	    p_currency_factor * 12.0,
 	    1,
@@ -8537,7 +8573,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE AMPOLLETA DE CLUTCH",
+	    'REVISION DE AMPOLLETA DE CLUTCH',
 	    10,
 	    p_currency_factor * 2.0,
 	    1,
@@ -8545,7 +8581,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LAVADO DE RECIPIENTES DE REFRIGERANTE ",
+	    'LAVADO DE RECIPIENTES DE REFRIGERANTE ',
 	    15,
 	    p_currency_factor * 12.0,
 	    1,
@@ -8553,7 +8589,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE EMPAQUE DE TENSOR DE CADENILLA DE TIEMPO",
+	    'CAMBIO DE EMPAQUE DE TENSOR DE CADENILLA DE TIEMPO',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8561,7 +8597,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Cambio de aceite y filtro de aceite nivel 1",
+	    'Cambio de aceite y filtro de aceite nivel 1',
 	    25,
 	    p_currency_factor * 3.0,
 	    1,
@@ -8569,7 +8605,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LIMPIEZA DE CENTRIFUGO DE ACEITE",
+	    'LIMPIEZA DE CENTRIFUGO DE ACEITE',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8577,7 +8613,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION DE REFRIGERANTE ",
+	    'REVISION DE REFRIGERANTE ',
 	    20,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8585,7 +8621,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RETENEDOR DE TRANSMISI�N SCOOTER AUTOM�TICA ",
+	    'CAMBIO DE RETENEDOR DE TRANSMISIÓN SCOOTER AUTOMÁTICA ',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -8593,7 +8629,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RETENEDOR DE TRANSMISI�N SCOOTER AUTOM�TICA ",
+	    'CAMBIO DE RETENEDOR DE TRANSMISIÓN SCOOTER AUTOMÁTICA ',
 	    30,
 	    p_currency_factor * 10.0,
 	    1,
@@ -8601,7 +8637,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Revisi�n de bater�a",
+	    'Revisión de batería',
 	    5,
 	    p_currency_factor * 3.0,
 	    1,
@@ -8609,7 +8645,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Revisi�n de suspensi�n y sistema de frenos (externa)",
+	    'Revisión de suspensión y sistema de frenos (externa)',
 	    20,
 	    p_currency_factor * 7.0,
 	    1,
@@ -8617,7 +8653,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Revisi�n de carrocer�a y kit de tracci�n (externa)",
+	    'Revisión de carrocería y kit de tracción (externa)',
 	    10,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8625,7 +8661,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Revisi�n de carrocer�a y kit de tracci�n (externa)",
+	    'Revisión de carrocería y kit de tracción (externa)',
 	    10,
 	    p_currency_factor * 5.0,
 	    1,
@@ -8633,7 +8669,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE RETENEDOR DE ACEITE",
+	    'CAMBIO DE RETENEDOR DE ACEITE',
 	    24,
 	    p_currency_factor * 6.0,
 	    1,
@@ -8641,7 +8677,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO DE MANGUERA",
+	    'CAMBIO DE MANGUERA',
 	    8,
 	    p_currency_factor * 2.0,
 	    1,
@@ -8649,7 +8685,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ESCALA DE DIAGN�STICO MEC�NICA ",
+	    'ESCALA DE DIAGNÓSTICO MECÁNICA ',
 	    160,
 	    p_currency_factor * 40.0,
 	    1,
@@ -8657,7 +8693,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LUBRICACION  DE EJE CENTRAL",
+	    'LUBRICACION  DE EJE CENTRAL',
 	    16,
 	    p_currency_factor * 4.0,
 	    1,
@@ -8665,7 +8701,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "CAMBIO BENDIX  AUTOM�TICA ",
+	    'CAMBIO BENDIX  AUTOMÁTICA ',
 	    32,
 	    p_currency_factor * 8.0,
 	    1,
@@ -8673,7 +8709,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "Servicio de gr�a",
+	    'Servicio de grúa',
 	    90,
 	    p_currency_factor * 23.0,
 	    1,
@@ -8681,7 +8717,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REPARACI�N Y PINTADO DE TOLVAS",
+	    'REPARACIÓN Y PINTADO DE TOLVAS',
 	    588,
 	    p_currency_factor * 147.0,
 	    1,
@@ -8689,7 +8725,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISION Y LIMPIEZA DE VENTILADOR",
+	    'REVISION Y LIMPIEZA DE VENTILADOR',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8697,7 +8733,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "REVISI�N DE FUGA DE ACEITE ",
+	    'REVISIÓN DE FUGA DE ACEITE ',
 	    45,
 	    p_currency_factor * 10.0,
 	    1,
@@ -8705,7 +8741,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "LAVADO DE BOMBA DE GASOLINA ",
+	    'LAVADO DE BOMBA DE GASOLINA ',
 	    60,
 	    p_currency_factor * 15.0,
 	    1,
@@ -8713,7 +8749,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "DESARME Y PRESUPUESTO (MOTO CHOCADA) NIVEL 2",
+	    'DESARME Y PRESUPUESTO (MOTO CHOCADA) NIVEL 2',
 	    480,
 	    p_currency_factor * 120.0,
 	    1,
@@ -8721,7 +8757,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "ENDEREZADO DE DEFENZA Y PINTADO",
+	    'ENDEREZADO DE DEFENZA Y PINTADO',
 	    40,
 	    p_currency_factor * 10.0,
 	    1,
@@ -8729,21 +8765,27 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
 	), (
-	    "INSTALACION CARBURADOR NS200",
+	    'INSTALACION CARBURADOR NS200',
 	    40,
 	    p_currency_factor * 10.0,
 	    1,
 	    p_workshop_id,
 	    CURRENT_TIMESTAMP,
 	    CURRENT_TIMESTAMP
-	) RETURNING process_id INTO process_ids; 
-    --TODO: REMPAZAR LAS LETRAS MAYUSCULAS CORRECTAMENTE DE PROCESSES
+	);
+	--Guardando los ids
+    SELECT ARRAY(SELECT process_id FROM PROCESS WHERE workshop_id = p_workshop_id)
+    INTO process_ids;
+
+    --Probando imprimir ids:
+    RAISE NOTICE 'IDs: %', process_ids;	
+
 
 
 	--Create package process
 	--processByPackageRepository.saveAll(GenerateProcessesByPackages.generate(createdWorkshopId, createdPackages, createdProcesses));
 	INSERT INTO
-	    "PACKAGE_PROCESS" (
+	    PACKAGE_PROCESS (
 	        package_id,
 	        process_id,
 	        process_sequence
