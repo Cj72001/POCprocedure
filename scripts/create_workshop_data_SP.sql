@@ -1,6 +1,6 @@
---call create_workshop(1, 503, 3884.84);
+--call create_workshop(1, 503, 3884.5);
 
-CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code INT, p_currency_parameter NUMERIC) 
+CREATE OR REPLACE PROCEDURE create_workshop_data_SP(p_workshop_id INT, p_country_code INT, p_currency_parameter NUMERIC) 
     LANGUAGE PLPGSQL
     AS $$
     DECLARE 
@@ -18,7 +18,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
     --Create invoice types
 	--List<InvoiceType> createdInvoiceTypes = invoiceTypeRepository.saveAll(GenerateInvoiceTypes.generate(createdWorkshopId));
 	INSERT INTO
-	    INVOICE_TYPES (
+	    "INVOICE_TYPES" (
 	        "invoice_type_name",
 	        "invoice_type_code",
 	        "invoice_type_active",
@@ -50,7 +50,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    );
 		
 		--Guardando los ids
-    	SELECT ARRAY(SELECT invoice_type_id FROM INVOICE_TYPES WHERE workshop_id = p_workshop_id)
+    	SELECT ARRAY(SELECT invoice_type_id FROM "INVOICE_TYPES" WHERE workshop_id = p_workshop_id)
     	INTO invoice_type_ids;
 
     	--Probando imprimir ids:
@@ -60,7 +60,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Create vehicles types
 	--List<VehicleType> createdVehicleTypes = vehicleTypeRepository.saveAll(GenerateVehicleTypes.generate(createdWorkshopId));
 	INSERT INTO
-	    VEHICLE_TYPES (
+	    "VEHICLE_TYPES" (
 	        "vehicle_type_name",
 	        "vehicle_type_active",
 	        "workshop_id",
@@ -143,7 +143,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	-- WHERE
 	--     workshop_id = p_workshop_id;
 	INSERT INTO
-	    SERIES (
+	    "SERIES" (
 	        "serie_number",
 	        "serie_begin",
 	        "serie_end",
@@ -192,7 +192,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Create brands
 	--List<Brand> createdBrands = brandRepository.saveAll(GenerateBrands.generate(createdWorkshopId));
 	INSERT INTO
-	    BRANDS (
+	    "BRANDS" (
 	        "brand_name",
 	        "brand_active",
 	        "workshop_id",
@@ -448,7 +448,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    );
 		
 		--Guardando los ids
-    	SELECT ARRAY(SELECT brand_id FROM BRANDS WHERE workshop_id = p_workshop_id)
+    	SELECT ARRAY(SELECT brand_id FROM "BRANDS" WHERE workshop_id = p_workshop_id)
     	INTO brand_ids;
 
     	--Probando imprimir ids:
@@ -464,13 +464,13 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--     workshop_id = p_workshop_id;
 	SELECT
 	    vehicle_type_id INTO motorcycle_type_id
-	FROM VEHICLE_TYPES
+	FROM "VEHICLE_TYPES"
 	where
 	    workshop_id = p_workshop_id
 	    AND vehicle_type_name = 'MOTOCICLETA';
 		
 	INSERT INTO
-	    MODELS (
+	    "MODELS" (
 	        "model_name",
 	        "brand_id",
 	        "vehicle_type_id",
@@ -3052,7 +3052,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Create service types
 	--List<ServiceType> createdServiceTypes = serviceTypeRepository.saveAll(GenerateServiceTypes.generate(createdWorkshopId));
 	INSERT INTO
-	    SERVICE_TYPES (
+	    "SERVICE_TYPES" (
 	        "service_type_name",
 	        "service_type_active",
 	        "workshop_id",
@@ -3091,7 +3091,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Id del servicio, en este caso TALLER
 	SELECT
 	service_type_id INTO p_service_type_id
-	FROM SERVICE_TYPES
+	FROM "SERVICE_TYPES"
 	WHERE
 	workshop_id = p_workshop_id
 	AND service_type_name = 'TALLER';
@@ -3106,7 +3106,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	
 	
 	INSERT INTO
-	    PACKAGES(
+	    "PACKAGES" (
 	        "package_name",
 	        "package_price",
 	        "service_type_id",
@@ -3846,7 +3846,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    );
 
 		--Guardando los ids
-    	SELECT ARRAY(SELECT package_id FROM PACKAGES WHERE workshop_id = p_workshop_id)
+    	SELECT ARRAY(SELECT package_id FROM "PACKAGES" WHERE workshop_id = p_workshop_id)
     	INTO package_ids;
 
     	--Probando imprimir ids:
@@ -3858,7 +3858,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Create process
 	--List<Process> createdProcesses = processRepository.saveAll(GenerateProcesses.generate(createdWorkshopId, countryCode));
 	INSERT INTO
-	    PROCESS (
+	    "PROCESS" (
 	        process_name,
 	        process_estimated_time,
 	        process_price,
@@ -8773,7 +8773,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	    CURRENT_TIMESTAMP
 	);
 	--Guardando los ids
-    SELECT ARRAY(SELECT process_id FROM PROCESS WHERE workshop_id = p_workshop_id)
+    SELECT ARRAY(SELECT process_id FROM "PROCESS" WHERE workshop_id = p_workshop_id)
     INTO process_ids;
 
     --Probando imprimir ids:
@@ -8784,7 +8784,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 	--Create package process
 	--processByPackageRepository.saveAll(GenerateProcessesByPackages.generate(createdWorkshopId, createdPackages, createdProcesses));
 	INSERT INTO
-	    PACKAGE_PROCESS (
+	    "PACKAGE_PROCESS" (
 	        package_id,
 	        process_id,
 	        process_sequence
@@ -10184,7 +10184,7 @@ CREATE OR REPLACE PROCEDURE create_workshop(p_workshop_id INT, p_country_code IN
 );
 
 INSERT INTO
-    SCREEN_ROLES (
+    "SCREEN_ROLES" (
         "screen_id",
         "rol_id",
         "can_read",
@@ -11838,7 +11838,7 @@ VALUES (
 						
 --Categories Agregadas						
 INSERT INTO 
-	CATEGORIES (
+	"CATEGORIES" (
 		"category_name",
 		"category_active",
 		"created_at",
