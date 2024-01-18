@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-PocprocedureApplication<pocprocedure>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.PocprocedureApplication",
+            "projectName": "pocprocedure",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
