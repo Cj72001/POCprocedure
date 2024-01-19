@@ -1,6 +1,5 @@
---call create_workshop(1, 503, 3884.5);
 
-CREATE OR REPLACE PROCEDURE create_workshop_data_SP(p_workshop_id INT, p_country_code INT, p_currency_parameter NUMERIC) 
+CREATE OR REPLACE PROCEDURE create_workshop_data(p_workshop_id INT, p_country_code INT, p_currency_parameter NUMERIC) 
     LANGUAGE PLPGSQL
     AS $$
     DECLARE 
