@@ -1,10 +1,7 @@
 package com.pocstoreprocedure.pocprocedure.service;
 
 
-import java.math.BigDecimal;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import com.pocstoreprocedure.pocprocedure.repository.CustomRepository;
@@ -22,10 +19,11 @@ public class CustomService {
     @Autowired
     private CustomRepository cR;
 
-    public void insertRegistersSP(int workshopId, int countryCode, BigDecimal currencyParameter) {
+    @Transactional
+    public void insertRegistersSP(int workshopId) {
 
         try {
-            cR.createWorkshopData(workshopId, countryCode, currencyParameter);
+            cR.insertRegisters(workshopId);
             
         } catch (Exception e) {
             System.out.println("ERROR EN EL SERVICE CORRIENDO INSERT REGISTER:");
@@ -33,25 +31,37 @@ public class CustomService {
         }
     }
 
+    @Transactional
+    public void insertRegistersSPNoParam() {
+
+        try {
+            cR.insertRegistersNoParam();
+        } catch (Exception e) {
+            System.out.println("ERROR EN EL SERVICE CORRIENDO INSERT REGISTER:");
+            System.out.println(e);
+        }
+        
+    }
 
     //_________________________________________________________________________________
     //Sin usar Repository (Cuando no esta ligado a una entidad)
     @PersistenceContext
     private EntityManager entityManager;
 
-    public void insertRegistersSP2(int workshopId, int countryCode, BigDecimal currencyParameter) {
+    @Transactional
+    public void callProcedure(int workshopId) {
         StoredProcedureQuery query = this.entityManager
-            .createStoredProcedureQuery("create_workshop_data")
+            .createStoredProcedureQuery("insert_dummy_data")
             .registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN)
             .setParameter(1, workshopId);
-
-            query.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN)
-            .setParameter(2, countryCode);
-
-            query.registerStoredProcedureParameter(3, BigDecimal.class, ParameterMode.IN)
-            .setParameter(3, currencyParameter);
         
-            query.execute();
+        query.execute();
     }
 
+    @Transactional
+    public void callProcedureNoParam() {
+        StoredProcedureQuery query = this.entityManager.createStoredProcedureQuery("insert_dummy_data");
+        
+        query.execute();
+    }
 }
